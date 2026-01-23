@@ -183,6 +183,7 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
         var context: AccountContext
         var presentationData: ChatPresentationData
         var edited: Bool
+        var isDeleted: Bool
         var impressionCount: Int?
         var dateText: String
         var type: ChatMessageDateAndStatusType
@@ -209,6 +210,7 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
             context: AccountContext,
             presentationData: ChatPresentationData,
             edited: Bool,
+            isDeleted: Bool = false,
             impressionCount: Int?,
             dateText: String,
             type: ChatMessageDateAndStatusType,
@@ -234,6 +236,7 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
             self.context = context
             self.presentationData = presentationData
             self.edited = edited
+            self.isDeleted = isDeleted
             self.impressionCount = impressionCount == 0 ? nil : impressionCount
             self.dateText = dateText
             self.type = type
@@ -539,6 +542,9 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
             }
             
             var updatedDateText = arguments.dateText
+            if arguments.isDeleted {
+                updatedDateText = "deleted • \(updatedDateText)"
+            }
             if arguments.edited {
                 updatedDateText = "\(arguments.presentationData.strings.Conversation_MessageEditedLabel) \(updatedDateText)"
             }

@@ -297,8 +297,9 @@ public class ChatMessageContactBubbleContentNode: ChatMessageBubbleContentNode {
                     statusSuggestedWidthAndContinue = statusLayout(ChatMessageDateAndStatusNode.Arguments(
                         context: item.context,
                         presentationData: item.presentationData,
-                        edited: edited,
-                        impressionCount: viewCount,
+                        edited: edited && !item.presentationData.isPreview,
+                        isDeleted: item.message.gugramAttribute.isDeleted,
+                        impressionCount: !item.presentationData.isPreview ? viewCount : nil,
                         dateText: dateText,
                         type: statusType,
                         layoutInput: .trailingContent(contentWidth: 1000.0, reactionSettings: shouldDisplayInlineDateReactions(message: item.message, isPremium: item.associatedData.isPremium, forceInline: item.associatedData.forceInlineReactions) ? ChatMessageDateAndStatusNode.TrailingReactionSettings(displayInline: true, preferAdditionalInset: false) : nil),

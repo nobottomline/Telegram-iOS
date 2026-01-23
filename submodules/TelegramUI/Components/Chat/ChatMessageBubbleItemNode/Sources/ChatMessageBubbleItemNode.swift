@@ -635,6 +635,9 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
     private let backgroundNode: ChatMessageBackground
     private var backgroundHighlightNode: ChatMessageBackground?
     private let shadowNode: ChatMessageShadowNode
+    
+    // MARK: GuGram - Deleted message glow effect
+    private var deletedMessageGlowNode: ASDisplayNode?
     private var clippingNode: ChatMessageBubbleClippingNode
     
     private var suggestedPostInfoNode: ChatMessageSuggestedPostInfoNode?
@@ -2466,12 +2469,12 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
                     isReplyThread = true
                 }
                 
-                let statusSuggestedWidthAndContinue = mosaicStatusLayout(ChatMessageDateAndStatusNode.Arguments(
-                    context: item.context,
-                    presentationData: item.presentationData,
-                    edited: edited && !item.presentationData.isPreview,
-                    impressionCount: !item.presentationData.isPreview ? viewCount : nil,
-                    dateText: dateText,
+                                    let statusSuggestedWidthAndContinue = mosaicStatusLayout(ChatMessageDateAndStatusNode.Arguments(
+                                        context: item.context,
+                                        presentationData: item.presentationData,
+                                        edited: edited && !item.presentationData.isPreview,
+                                        isDeleted: item.message.gugramAttribute.isDeleted,
+                                        impressionCount: !item.presentationData.isPreview ? viewCount : nil,                    dateText: dateText,
                     type: statusType,
                     layoutInput: .standalone(reactionSettings: shouldDisplayInlineDateReactions(message: item.message, isPremium: item.associatedData.isPremium, forceInline: item.associatedData.forceInlineReactions) ? ChatMessageDateAndStatusNode.StandaloneReactionSettings() : nil),
                     constrainedSize: CGSize(width: 200.0, height: CGFloat.greatestFiniteMagnitude),
@@ -3677,6 +3680,10 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
         strongSelf.backgroundNode.setType(type: backgroundType, highlighted: false, graphics: graphics, maskMode: strongSelf.backgroundMaskMode, hasWallpaper: hasWallpaper, transition: legacyTransition, backgroundNode: presentationContext.backgroundNode)
         strongSelf.backgroundWallpaperNode.setType(type: backgroundType, theme: item.presentationData.theme, essentialGraphics: graphics, maskMode: strongSelf.backgroundMaskMode, backgroundNode: presentationContext.backgroundNode)
         strongSelf.shadowNode.setType(type: backgroundType, hasWallpaper: hasWallpaper, graphics: graphics)
+        
+        // MARK: GuGram - Apply deleted message visual effects
+        let isMessageDeleted = item.message.gugramAttribute.isDeleted
+        strongSelf.applyDeletedMessageEffect(isDeleted: isMessageDeleted, backgroundFrame: backgroundFrame, animation: animation)
         
         strongSelf.backgroundType = backgroundType
         
@@ -7111,6 +7118,92 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
         }
         
         return nil
+    }
+    
+    // MARK: - GuGram Deleted Message Effects
+    
+    private func applyDeletedMessageEffect(isDeleted: Bool, backgroundFrame: CGRect, animation: ListViewItemUpdateAnimation) {
+        if isDeleted {
+            // Apply transparency to the entire message bubble
+            let deletedAlpha: CGFloat = 0.55
+            
+            // Create or update glow node
+            let glowNode: ASDisplayNode
+            if let existingGlow = self.deletedMessageGlowNode {
+                glowNode = existingGlow
+            } else {
+                glowNode = ASDisplayNode()
+                glowNode.isLayerBacked = true
+                self.deletedMessageGlowNode = glowNode
+                self.mainContextSourceNode.contentNode.insertSubnode(glowNode, at: 0)
+            }
+            
+            // Configure glow effect - красно-фиолетовое свечение
+            let glowInset: CGFloat = 8.0
+            let glowFrame = backgroundFrame.insetBy(dx: -glowInset, dy: -glowInset)
+            glowNode.frame = glowFrame
+            
+            // Apply glow using layer shadow
+            glowNode.layer.cornerRadius = 18.0
+            glowNode.layer.shadowColor = UIColor(red: 0.9, green: 0.2, blue: 0.4, alpha: 1.0).cgColor
+            glowNode.layer.shadowOffset = CGSize.zero
+            glowNode.layer.shadowRadius = 12.0
+            glowNode.layer.shadowOpacity = 0.6
+            glowNode.layer.shadowPath = UIBezierPath(roundedRect: CGRect(origin: .zero, size: glowFrame.size), cornerRadius: 18.0).cgPath
+            
+            // Добавляем внутреннее свечение через backgroundColor с градиентом
+            glowNode.backgroundColor = UIColor(red: 0.9, green: 0.2, blue: 0.4, alpha: 0.08)
+            
+            // Apply transparency with animation
+            if case .System = animation {
+                UIView.animate(withDuration: 0.3) {
+                    self.backgroundNode.alpha = deletedAlpha
+                    self.backgroundWallpaperNode.alpha = deletedAlpha
+                    for contentNode in self.contentNodes {
+                        contentNode.alpha = deletedAlpha + 0.15 // Контент чуть менее прозрачный
+                    }
+                    glowNode.alpha = 1.0
+                }
+            } else {
+                self.backgroundNode.alpha = deletedAlpha
+                self.backgroundWallpaperNode.alpha = deletedAlpha
+                for contentNode in self.contentNodes {
+                    contentNode.alpha = deletedAlpha + 0.15
+                }
+                glowNode.alpha = 1.0
+            }
+        } else {
+            // Reset to normal state
+            if let glowNode = self.deletedMessageGlowNode {
+                if case .System = animation {
+                    UIView.animate(withDuration: 0.2, animations: {
+                        glowNode.alpha = 0.0
+                    }, completion: { _ in
+                        glowNode.removeFromSupernode()
+                    })
+                } else {
+                    glowNode.removeFromSupernode()
+                }
+                self.deletedMessageGlowNode = nil
+            }
+            
+            // Reset alpha
+            if case .System = animation {
+                UIView.animate(withDuration: 0.2) {
+                    self.backgroundNode.alpha = 1.0
+                    self.backgroundWallpaperNode.alpha = 1.0
+                    for contentNode in self.contentNodes {
+                        contentNode.alpha = 1.0
+                    }
+                }
+            } else {
+                self.backgroundNode.alpha = 1.0
+                self.backgroundWallpaperNode.alpha = 1.0
+                for contentNode in self.contentNodes {
+                    contentNode.alpha = 1.0
+                }
+            }
+        }
     }
 }
 

@@ -949,11 +949,12 @@ public final class ChatMessageInteractiveFileNode: ASDisplayNode {
                         statusLayoutInput = .trailingContent(contentWidth: iconFrame == nil ? 1000.0 : controlAreaWidth, reactionSettings: reactionSettings)
                     }
                     
-                    statusSuggestedWidthAndContinue = statusLayout(ChatMessageDateAndStatusNode.Arguments(
-                        context: arguments.context,
-                        presentationData: arguments.presentationData,
-                        edited: edited && !arguments.presentationData.isPreview,
-                        impressionCount: !arguments.presentationData.isPreview ? viewCount : nil,
+                statusSuggestedWidthAndContinue = statusLayout(ChatMessageDateAndStatusNode.Arguments(
+                    context: arguments.context,
+                    presentationData: arguments.presentationData,
+                    edited: edited && !arguments.presentationData.isPreview,
+                    isDeleted: arguments.message.gugramAttribute.isDeleted,
+                    impressionCount: !arguments.presentationData.isPreview ? viewCount : nil,
                         dateText: dateText,
                         type: statusType,
                         layoutInput: statusLayoutInput,

@@ -525,7 +525,6 @@ public class ChatMessageInteractiveInstantVideoNode: ASDisplayNode {
             if item.attributes.updatingMedia != nil {
                 edited = true
             }
-            let sentViaBot = false
             var viewCount: Int? = nil
             var dateReplies = 0
             var starsCount: Int64?
@@ -576,8 +575,9 @@ public class ChatMessageInteractiveInstantVideoNode: ASDisplayNode {
             let statusSuggestedWidthAndContinue = makeDateAndStatusLayout(ChatMessageDateAndStatusNode.Arguments(
                 context: item.context,
                 presentationData: item.presentationData,
-                edited: edited && !sentViaBot && !item.presentationData.isPreview,
-                impressionCount: !item.presentationData.isPreview ? viewCount : nil,
+                edited: edited,
+                isDeleted: item.message.gugramAttribute.isDeleted,
+                impressionCount: viewCount,
                 dateText: dateText,
                 type: statusType,
                 layoutInput: .standalone(reactionSettings: shouldDisplayInlineDateReactions(message: item.message, isPremium: item.associatedData.isPremium, forceInline: item.associatedData.forceInlineReactions) ? ChatMessageDateAndStatusNode.StandaloneReactionSettings() : nil),

@@ -1108,12 +1108,12 @@ public final class ChatMessageInteractiveMediaNode: ASDisplayNode, GalleryItemTr
             let messageEffect = message.messageEffect(availableMessageEffects: associatedData.availableMessageEffects)
 
             if let dateAndStatus = dateAndStatus {
-                let statusSuggestedWidthAndContinue = statusLayout(ChatMessageDateAndStatusNode.Arguments(
-                    context: context,
-                    presentationData: presentationData,
-                    edited: dateAndStatus.edited && !presentationData.isPreview,
-                    impressionCount: !presentationData.isPreview ? dateAndStatus.viewCount : nil,
-                    dateText: dateAndStatus.dateText,
+                            let statusSuggestedWidthAndContinue = statusLayout(ChatMessageDateAndStatusNode.Arguments(
+                                context: context,
+                                presentationData: presentationData,
+                                edited: dateAndStatus.edited && !presentationData.isPreview,
+                                isDeleted: message.gugramAttribute.isDeleted,
+                                impressionCount: !presentationData.isPreview ? dateAndStatus.viewCount : nil,                    dateText: dateAndStatus.dateText,
                     type: dateAndStatus.type,
                     layoutInput: .standalone(reactionSettings: shouldDisplayInlineDateReactions(message: message, isPremium: associatedData.isPremium, forceInline: associatedData.forceInlineReactions) ? ChatMessageDateAndStatusNode.StandaloneReactionSettings() : nil),
                     constrainedSize: CGSize(width: nativeSize.width - 30.0, height: CGFloat.greatestFiniteMagnitude),

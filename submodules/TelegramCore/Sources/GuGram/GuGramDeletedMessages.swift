@@ -7,7 +7,10 @@ public struct GuGramDeletedMessages {}
 public extension GuGramDeletedMessages {
     static var enabled: Bool {
         get {
-            UserDefaults.standard.bool(forKey: "gg_showDeletedMessages")
+            if UserDefaults.standard.object(forKey: "gg_showDeletedMessages") == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: "gg_showDeletedMessages")
         } set {
             UserDefaults.standard.setValue(newValue, forKey: "gg_showDeletedMessages")
         }
@@ -23,22 +26,27 @@ extension GuGramDeletedMessages {
             return globalIds
         }
 
-        var markedIds: [Int32] = []
+        var protectedIds: [Int32] = []
 
         for globalId in globalIds {
             if let id = transaction.messageIdsForGlobalIds([globalId]).first {
-                transaction.updateGuGramAttribute(messageId: id) {
-                    if !$0.isDeleted {
-                        $0.isDeleted = true
-                        markedIds.append(globalId)
+                // Проверяем, существует ли сообщение
+                if let _ = transaction.getMessage(id) {
+                    transaction.updateGuGramAttribute(messageId: id) {
+                        if !$0.isDeleted {
+                            $0.isDeleted = true
+                        }
                     }
+                    // Защищаем сообщение от удаления (не важно, было ли оно уже помечено)
+                    protectedIds.append(globalId)
                 }
             }
         }
 
-        let unmarkedIds = Set(globalIds).subtracting(markedIds)
+        // Возвращаем только ID сообщений, которые НЕ нужно защищать (т.е. не найдены в базе)
+        let idsToDelete = Set(globalIds).subtracting(protectedIds)
 
-        return Array(unmarkedIds)
+        return Array(idsToDelete)
     }
 
     static func markMessagesAsDeleted(
@@ -49,19 +57,50 @@ extension GuGramDeletedMessages {
             return ids
         }
 
-        var markedIds: [MessageId] = []
+        var protectedIds: [MessageId] = []
 
         for id in ids {
-            transaction.updateGuGramAttribute(messageId: id) {
-                if !$0.isDeleted {
-                    $0.isDeleted = true
-                    markedIds.append(id)
+            // Проверяем, существует ли сообщение
+            if let _ = transaction.getMessage(id) {
+                transaction.updateGuGramAttribute(messageId: id) {
+                    if !$0.isDeleted {
+                        $0.isDeleted = true
+                    }
                 }
+                // Защищаем сообщение от удаления (не важно, было ли оно уже помечено)
+                protectedIds.append(id)
             }
         }
 
-        let unmarkedIds = Set(ids).subtracting(markedIds)
+        // Возвращаем только ID сообщений, которые НЕ нужно защищать (т.е. не найдены в базе)
+        let idsToDelete = Set(ids).subtracting(protectedIds)
 
-        return Array(unmarkedIds)
+        return Array(idsToDelete)
+    }
+    
+    /// Помечает сообщения в диапазоне как удаленные
+    /// Используется для перехвата deleteMessagesInRange
+    static func markMessagesInRangeAsDeleted(
+        peerId: PeerId,
+        namespace: MessageId.Namespace,
+        minId: MessageId.Id,
+        maxId: MessageId.Id,
+        transaction: Transaction
+    ) {
+        guard enabled else {
+            return
+        }
+        
+        // Итерируем по всем сообщениям пира и помечаем те, что в диапазоне
+        transaction.withAllMessages(peerId: peerId, namespace: namespace) { message in
+            if message.id.id >= minId && message.id.id <= maxId {
+                transaction.updateGuGramAttribute(messageId: message.id) {
+                    if !$0.isDeleted {
+                        $0.isDeleted = true
+                    }
+                }
+            }
+            return true // продолжаем итерацию
+        }
     }
 }

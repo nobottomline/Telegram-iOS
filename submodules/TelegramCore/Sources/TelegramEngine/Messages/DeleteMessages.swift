@@ -63,6 +63,32 @@ public func _internal_deleteMessages(transaction: Transaction, mediaBox: MediaBo
     })
 }
 
+/// GuGram: Безопасное удаление сообщений в диапазоне с защитой удаленных сообщений
+func _internal_deleteMessagesInRange(transaction: Transaction, mediaBox: MediaBox, peerId: PeerId, namespace: MessageId.Namespace, minId: MessageId.Id, maxId: MessageId.Id, forEachMedia: ((Media) -> Void)?) {
+    // Собираем все ID сообщений в диапазоне
+    var messageIds: [MessageId] = []
+    transaction.withAllMessages(peerId: peerId, namespace: namespace) { message in
+        if message.id.id >= minId && message.id.id <= maxId {
+            messageIds.append(message.id)
+        }
+        return true // продолжаем итерацию
+    }
+    
+    // Используем _internal_deleteMessages с защитой
+    _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: messageIds, deleteMedia: true)
+    
+    // Вызываем callback для медиа
+    if let forEachMedia = forEachMedia {
+        for id in messageIds {
+            if let message = transaction.getMessage(id) {
+                for media in message.media {
+                    forEachMedia(media)
+                }
+            }
+        }
+    }
+}
+
 func _internal_deleteAllMessagesWithAuthor(transaction: Transaction, mediaBox: MediaBox, peerId: PeerId, authorId: PeerId, namespace: MessageId.Namespace) {
     var resourceIds: [MediaResourceId] = []
     transaction.removeAllMessagesWithAuthor(peerId, authorId: authorId, namespace: namespace, forEachMedia: { media in

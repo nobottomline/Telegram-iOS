@@ -4251,8 +4251,9 @@ func replayFinalState(
                 if let message = transaction.getMessage(id) {
                     updatePeerChatInclusionWithMinTimestamp(transaction: transaction, id: id.peerId, minTimestamp: message.timestamp, forceRootGroupIfNotExists: false)
                 }
+                // MARK: GuGram DeletedMessages - используем защищенное удаление
                 var resourceIds: [MediaResourceId] = []
-                transaction.deleteMessagesInRange(peerId: id.peerId, namespace: id.namespace, minId: 1, maxId: id.id, forEachMedia: { media in
+                _internal_deleteMessagesInRange(transaction: transaction, mediaBox: mediaBox, peerId: id.peerId, namespace: id.namespace, minId: 1, maxId: id.id, forEachMedia: { media in
                     addMessageMediaResourceIdsToRemove(media: media, resourceIds: &resourceIds)
                 })
                 if !resourceIds.isEmpty {
@@ -4322,7 +4323,10 @@ func replayFinalState(
                         updatedMedia = previousMessage.media
                     }
                     
-                    return .update(message.withUpdatedLocalTags(updatedLocalTags).withUpdatedFlags(updatedFlags).withUpdatedAttributes(updatedAttributes).withUpdatedMedia(updatedMedia))
+                    // MARK: GuGram DeletedMessages
+                    let updatedMessage = message.withUpdatedLocalTags(updatedLocalTags).withUpdatedFlags(updatedFlags).withUpdatedAttributes(updatedAttributes).withUpdatedMedia(updatedMedia).updatingGuGramAttributeOnEdit(previousMessage: previousMessage)
+                    
+                    return .update(updatedMessage)
                 })
                 if let generatedEvent = generatedEvent {
                     addedReactionEvents.append(generatedEvent)

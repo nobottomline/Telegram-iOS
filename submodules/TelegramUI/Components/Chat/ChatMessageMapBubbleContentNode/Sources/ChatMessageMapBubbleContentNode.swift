@@ -273,7 +273,8 @@ public class ChatMessageMapBubbleContentNode: ChatMessageBubbleContentNode {
                     let statusSuggestedWidthAndContinue = statusLayout(ChatMessageDateAndStatusNode.Arguments(
                         context: item.context,
                         presentationData: item.presentationData,
-                        edited: edited,
+                        edited: edited && !item.presentationData.isPreview,
+                        isDeleted: item.message.gugramAttribute.isDeleted,
                         impressionCount: !item.presentationData.isPreview ? viewCount : nil,
                         dateText: dateText,
                         type: statusType,

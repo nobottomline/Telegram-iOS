@@ -49,11 +49,6 @@ public class ChatMessageRestrictedBubbleContentNode: ChatMessageBubbleContentNod
                 let horizontalInset = layoutConstants.text.bubbleInsets.left + layoutConstants.text.bubbleInsets.right
                 let textConstrainedSize = CGSize(width: min(maxTextWidth, constrainedSize.width - horizontalInset), height: constrainedSize.height)
                 
-                var edited = false
-                if item.attributes.updatingMedia != nil {
-                    edited = true
-                }
-                var viewCount: Int?
                 var rawText = ""
                 var dateReplies = 0
                 var starsCount: Int64?
@@ -62,11 +57,7 @@ public class ChatMessageRestrictedBubbleContentNode: ChatMessageBubbleContentNod
                     dateReactionsAndPeers = ([], [])
                 }
                 for attribute in item.message.attributes {
-                    if let attribute = attribute as? EditedMessageAttribute {
-                        edited = !attribute.isHidden
-                    } else if let attribute = attribute as? ViewCountMessageAttribute {
-                        viewCount = attribute.count
-                    } else if let attribute = attribute as? RestrictedContentMessageAttribute {
+                    if let attribute = attribute as? RestrictedContentMessageAttribute {
                         rawText = attribute.platformText(platform: "ios", contentSettings: item.context.currentContentSettings.with { $0 }) ?? ""
                     } else if let attribute = attribute as? ReplyThreadMessageAttribute, case .peer = item.chatLocation {
                         if let channel = item.message.peers[item.message.id.peerId] as? TelegramChannel, case .group = channel.info {
@@ -129,8 +120,9 @@ public class ChatMessageRestrictedBubbleContentNode: ChatMessageBubbleContentNod
                     statusSuggestedWidthAndContinue = statusLayout(ChatMessageDateAndStatusNode.Arguments(
                         context: item.context,
                         presentationData: item.presentationData,
-                        edited: edited,
-                        impressionCount: viewCount,
+                        edited: false,
+                        isDeleted: item.message.gugramAttribute.isDeleted,
+                        impressionCount: nil,
                         dateText: dateText,
                         type: statusType,
                         layoutInput: .trailingContent(contentWidth: textLayout.trailingLineWidth, reactionSettings: ChatMessageDateAndStatusNode.TrailingReactionSettings(displayInline: shouldDisplayInlineDateReactions(message: message, isPremium: item.associatedData.isPremium, forceInline: item.associatedData.forceInlineReactions), preferAdditionalInset: false)),

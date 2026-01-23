@@ -127,6 +127,13 @@ func chatHistoryEntriesForView(
         var message = entry.message
         var isRead = entry.isRead
         
+        // MARK: GuGram DeletedMessages
+        if !GuGramDeletedMessages.enabled,
+           message.gugramAttribute.isDeleted {
+            continue
+        }
+        //
+        
         if pendingRemovedMessages.contains(message.id) {
             continue
         }

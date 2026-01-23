@@ -63,6 +63,7 @@ xcodeproj.bazelrc
 */*.swp
 *.swp
 build-input/*
+build-output/*
 **/*.pyc
 *.pyc
 submodules/OpusBinding/SharedHeaders/*
