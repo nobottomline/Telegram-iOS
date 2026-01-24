@@ -323,7 +323,64 @@ func chatHistoryEntriesForView(
         }
         entries = flatEntries
     }
-    
+
+    // MARK: GuGram Edit History Inline Expansion
+    if GuGramSettings.shared.isEditedMessagesEnabled {
+        var expandedEntries: [ChatHistoryEntry] = []
+        for entry in entries {
+            expandedEntries.append(entry)
+
+            if case let .MessageEntry(message, presentationData, isRead, location, selection, attributes) = entry {
+                // Check if this message has edit history and is expanded
+                let editHistory = message.gugramAttribute.editHistory
+                if !editHistory.isEmpty && associatedData.expandedEditHistoryMessageIds.contains(message.id) {
+                    // Insert edit history entries in reverse chronological order (newest first)
+                    for (index, historyEntry) in editHistory.enumerated().reversed() {
+                        // Create synthetic message for edit history entry
+                        let syntheticStableId = UInt32.max - message.stableId - UInt32(index + 1)
+                        // Use a very large ID to avoid conflicts with real messages
+                        // Format: 2147000000 + original_id * 100 + index
+                        // This ensures uniqueness while staying within Int32 range
+                        let syntheticId = Int32(2147000000) + (message.id.id % 10000) * 100 + Int32(index + 1)
+                        let syntheticMessage = Message(
+                            stableId: syntheticStableId,
+                            stableVersion: 0,
+                            id: MessageId(peerId: message.id.peerId, namespace: message.id.namespace, id: syntheticId),
+                            globallyUniqueId: nil,
+                            groupingKey: nil,
+                            groupInfo: nil,
+                            threadId: message.threadId,
+                            timestamp: historyEntry.editTimestamp,
+                            flags: message.flags,
+                            tags: message.tags,
+                            globalTags: message.globalTags,
+                            localTags: message.localTags,
+                            customTags: message.customTags,
+                            forwardInfo: message.forwardInfo,
+                            author: message.author,
+                            text: historyEntry.text,
+                            attributes: [
+                                GuGramEditHistoryMessageAttribute(originMessageId: message.id, editTimestamp: historyEntry.editTimestamp),
+                                TextEntitiesMessageAttribute(entities: historyEntry.entities)
+                            ],
+                            media: [],
+                            peers: message.peers,
+                            associatedMessages: SimpleDictionary(),
+                            associatedMessageIds: [],
+                            associatedMedia: [:],
+                            associatedThreadInfo: nil,
+                            associatedStories: [:]
+                        )
+
+                        expandedEntries.append(.MessageEntry(syntheticMessage, presentationData, isRead, location, selection, attributes))
+                    }
+                }
+            }
+        }
+        entries = expandedEntries
+    }
+    // End GuGram Edit History
+
     var addBotForumHeader = false
     if location.threadId == nil, let user = chatPeer as? TelegramUser, user.isForum, !entries.isEmpty, !view.holeEarlier, !view.isLoading {
         addBotForumHeader = true

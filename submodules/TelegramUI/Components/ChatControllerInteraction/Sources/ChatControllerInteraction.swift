@@ -290,10 +290,12 @@ public final class ChatControllerInteraction: ChatControllerInteractionProtocol 
     public let requestToggleTodoMessageItem: (MessageId, Int32, Bool) -> Void
     public let displayTodoToggleUnavailable: (MessageId) -> Void
     public let openStarsPurchase: (Int64?) -> Void
-    
+    public let toggleEditHistory: (MessageId) -> Void
+
     public var canPlayMedia: Bool = false
     public var hiddenMedia: [MessageId: [Media]] = [:]
     public var expandedTranslationMessageStableIds: Set<UInt32> = Set()
+    public var expandedEditHistoryMessageIds: Set<MessageId> = Set()
     public var selectionState: ChatInterfaceSelectionState?
     public var highlightedState: ChatInterfaceHighlightedState?
     public var contextHighlightedState: ChatInterfaceHighlightedState?
@@ -459,6 +461,7 @@ public final class ChatControllerInteraction: ChatControllerInteractionProtocol 
         requestToggleTodoMessageItem: @escaping (MessageId, Int32, Bool) -> Void,
         displayTodoToggleUnavailable: @escaping (MessageId) -> Void,
         openStarsPurchase: @escaping (Int64?) -> Void,
+        toggleEditHistory: @escaping (MessageId) -> Void,
         automaticMediaDownloadSettings: MediaAutoDownloadSettings,
         pollActionState: ChatInterfacePollActionState,
         stickerSettings: ChatInterfaceStickerSettings,
@@ -582,7 +585,8 @@ public final class ChatControllerInteraction: ChatControllerInteractionProtocol 
         self.requestToggleTodoMessageItem = requestToggleTodoMessageItem
         self.displayTodoToggleUnavailable = displayTodoToggleUnavailable
         self.openStarsPurchase = openStarsPurchase
-        
+        self.toggleEditHistory = toggleEditHistory
+
         self.automaticMediaDownloadSettings = automaticMediaDownloadSettings
         
         self.pollActionState = pollActionState

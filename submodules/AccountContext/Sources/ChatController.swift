@@ -65,7 +65,8 @@ public final class ChatMessageItemAssociatedData: Equatable {
     public let isInline: Bool
     public let showSensitiveContent: Bool
     public let isSuspiciousPeer: Bool
-    
+    public let expandedEditHistoryMessageIds: Set<MessageId>
+
     public init(
         automaticDownloadPeerType: MediaAutoDownloadPeerType,
         automaticDownloadPeerId: EnginePeer.Id?,
@@ -100,7 +101,8 @@ public final class ChatMessageItemAssociatedData: Equatable {
         isStandalone: Bool = false,
         isInline: Bool = false,
         showSensitiveContent: Bool = false,
-        isSuspiciousPeer: Bool = false
+        isSuspiciousPeer: Bool = false,
+        expandedEditHistoryMessageIds: Set<MessageId> = Set()
     ) {
         self.automaticDownloadPeerType = automaticDownloadPeerType
         self.automaticDownloadPeerId = automaticDownloadPeerId
@@ -136,8 +138,9 @@ public final class ChatMessageItemAssociatedData: Equatable {
         self.isInline = isInline
         self.showSensitiveContent = showSensitiveContent
         self.isSuspiciousPeer = isSuspiciousPeer
+        self.expandedEditHistoryMessageIds = expandedEditHistoryMessageIds
     }
-    
+
     public static func == (lhs: ChatMessageItemAssociatedData, rhs: ChatMessageItemAssociatedData) -> Bool {
         if lhs.automaticDownloadPeerType != rhs.automaticDownloadPeerType {
             return false
@@ -230,6 +233,9 @@ public final class ChatMessageItemAssociatedData: Equatable {
             return false
         }
         if lhs.isSuspiciousPeer != rhs.isSuspiciousPeer {
+            return false
+        }
+        if lhs.expandedEditHistoryMessageIds != rhs.expandedEditHistoryMessageIds {
             return false
         }
         return true

@@ -1265,6 +1265,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
         /*
         let isCopyProtected = chatPresentationInterfaceState.copyProtectionEnabled || message.isCopyProtected()
         */
+        let canShowEditHistory = GuGramSettings.shared.isEditedMessagesEnabled && messages.count == 1 && !message.gugramAttribute.editHistory.isEmpty
         if !messageText.isEmpty || (resourceAvailable && isImage) || diceEmoji != nil {
             if !isExpired {
                 if !isPoll {
@@ -1384,6 +1385,17 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                     })))
                 }
             }
+        }
+        
+        if canShowEditHistory {
+            let isExpanded = controllerInteraction.expandedEditHistoryMessageIds.contains(message.id)
+            let title = isExpanded ? "Hide Edit History" : "Show Edit History"
+            actions.append(.action(ContextMenuActionItem(text: title, icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Info"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, f in
+                f(.dismissWithoutContent)
+                controllerInteraction.toggleEditHistory(message.id)
+            })))
         }
         
         if resourceAvailable, !message.containsSecretMedia && !isCopyProtected {

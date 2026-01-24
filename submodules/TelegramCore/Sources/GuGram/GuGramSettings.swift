@@ -12,6 +12,9 @@ public final class GuGramSettings {
     
     private let hideStoriesKey = "GuGram_HideStories"
     private let hideStoriesPromise = ValuePromise<Bool>(false)
+
+    private let editedMessagesKey = "GuGram_EditedMessages"
+    private let editedMessagesPromise = ValuePromise<Bool>(false)
     
     public var ghostModeSignal: Signal<Bool, NoError> {
         return self.ghostModePromise.get()
@@ -23,6 +26,10 @@ public final class GuGramSettings {
     
     public var hideStoriesSignal: Signal<Bool, NoError> {
         return self.hideStoriesPromise.get()
+    }
+
+    public var editedMessagesSignal: Signal<Bool, NoError> {
+        return self.editedMessagesPromise.get()
     }
     
     public var isGhostModeEnabled: Bool {
@@ -54,10 +61,24 @@ public final class GuGramSettings {
             self.hideStoriesPromise.set(newValue)
         }
     }
+
+    public var isEditedMessagesEnabled: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: editedMessagesKey) == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: editedMessagesKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: editedMessagesKey)
+            self.editedMessagesPromise.set(newValue)
+        }
+    }
     
     init() {
         self.ghostModePromise.set(self.isGhostModeEnabled)
         self.localPremiumPromise.set(self.isLocalPremiumEnabled)
         self.hideStoriesPromise.set(self.isHideStoriesEnabled)
+        self.editedMessagesPromise.set(self.isEditedMessagesEnabled)
     }
 }

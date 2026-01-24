@@ -25,12 +25,23 @@ extension ChatControllerImpl {
             return
         }
         let presentationData = self.presentationData
-        
+
         self.dismissAllTooltips()
-        
+
         let recognizer: TapLongTapOrDoubleTapGestureRecognizer? = anyRecognizer as? TapLongTapOrDoubleTapGestureRecognizer
         let gesture: ContextGesture? = anyRecognizer as? ContextGesture
-        if let messages = self.chatDisplayNode.historyNode.messageGroupInCurrentHistoryView(message.id) {
+
+        // GuGram: Special handling for edit history messages (synthetic messages)
+        // These messages are created on-the-fly and may not be in the history view
+        var messages: [Message]?
+        if message.isGuGramEditHistoryMessage {
+            // For edit history messages, use them directly without searching in history view
+            messages = [message]
+        } else {
+            messages = self.chatDisplayNode.historyNode.messageGroupInCurrentHistoryView(message.id)
+        }
+
+        if let messages = messages {
             (self.view.window as? WindowHost)?.cancelInteractiveKeyboardGestures()
             self.chatDisplayNode.cancelInteractiveKeyboardGestures()
             var updatedMessages = messages

@@ -184,6 +184,7 @@ public final class BrowserBookmarksScreen: ViewController {
             }, requestToggleTodoMessageItem: { _, _, _ in
             }, displayTodoToggleUnavailable: { _ in
             }, openStarsPurchase: { _ in
+            }, toggleEditHistory: { _ in
             }, automaticMediaDownloadSettings: MediaAutoDownloadSettings.defaultSettings, pollActionState: ChatInterfacePollActionState(), stickerSettings: ChatInterfaceStickerSettings(), presentationContext: ChatPresentationContext(context: context, backgroundNode: nil))
             
             

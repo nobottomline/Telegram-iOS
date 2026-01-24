@@ -4323,8 +4323,11 @@ func replayFinalState(
                         updatedMedia = previousMessage.media
                     }
                     
-                    // MARK: GuGram DeletedMessages
-                    let updatedMessage = message.withUpdatedLocalTags(updatedLocalTags).withUpdatedFlags(updatedFlags).withUpdatedAttributes(updatedAttributes).withUpdatedMedia(updatedMedia).updatingGuGramAttributeOnEdit(previousMessage: previousMessage)
+                    // MARK: GuGram EditedMessages
+                    var updatedMessage = message.withUpdatedLocalTags(updatedLocalTags).withUpdatedFlags(updatedFlags).withUpdatedAttributes(updatedAttributes).withUpdatedMedia(updatedMedia)
+                    if GuGramSettings.shared.isEditedMessagesEnabled {
+                        updatedMessage = updatedMessage.updatingGuGramAttributeOnEdit(previousMessage: previousMessage)
+                    }
                     
                     return .update(updatedMessage)
                 })

@@ -636,8 +636,9 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
     private var backgroundHighlightNode: ChatMessageBackground?
     private let shadowNode: ChatMessageShadowNode
     
-    // MARK: GuGram - Deleted message glow effect
+    // MARK: GuGram - Deleted/Edited message glow effects
     private var deletedMessageGlowNode: ASDisplayNode?
+    private var editedMessageGlowNode: ASDisplayNode?
     private var clippingNode: ChatMessageBubbleClippingNode
     
     private var suggestedPostInfoNode: ChatMessageSuggestedPostInfoNode?
@@ -1543,7 +1544,10 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
         let content = item.content
         let firstMessage = content.firstMessage
         let incoming = item.content.effectivelyIncoming(item.context.account.peerId, associatedData: item.associatedData)
-        
+
+        // MARK: GuGram Edit History Detection
+        let isEditHistoryMessage = firstMessage.isGuGramEditHistoryMessage
+
         let messageTheme = incoming ? item.presentationData.theme.theme.chat.message.incoming : item.presentationData.theme.theme.chat.message.outgoing
         
         var sourceReference: SourceReferenceMessageAttribute?
@@ -1729,6 +1733,10 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
         if isSidePanelOpen {
             avatarInset = 0.0
         }
+
+        // MARK: GuGram Edit History - Add left indent
+        let editHistoryIndent: CGFloat = isEditHistoryMessage ? 40.0 : 0.0
+        avatarInset += editHistoryIndent
         
         let isFailed = item.content.firstMessage.effectivelyFailed(timestamp: item.context.account.network.getApproximateRemoteTimestamp())
         
@@ -3485,6 +3493,7 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
                 forwardSource: forwardSource,
                 forwardAuthorSignature: forwardAuthorSignature,
                 accessibilityData: accessibilityData,
+                isEditHistoryMessage: isEditHistoryMessage,
                 actionButtonsSizeAndApply: actionButtonsSizeAndApply,
                 reactionButtonsSizeAndApply: reactionButtonsSizeAndApply,
                 updatedMergedTop: updatedMergedTop,
@@ -3553,6 +3562,7 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
         forwardSource: Peer?,
         forwardAuthorSignature: String?,
         accessibilityData: ChatMessageAccessibilityData,
+        isEditHistoryMessage: Bool,
         actionButtonsSizeAndApply: (CGSize, (ListViewItemUpdateAnimation) -> ChatMessageActionButtonsNode)?,
         reactionButtonsSizeAndApply: (CGSize, (ListViewItemUpdateAnimation) -> ChatMessageReactionButtonsNode)?,
         updatedMergedTop: ChatMessageMerge,
@@ -3681,10 +3691,13 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
         strongSelf.backgroundWallpaperNode.setType(type: backgroundType, theme: item.presentationData.theme, essentialGraphics: graphics, maskMode: strongSelf.backgroundMaskMode, backgroundNode: presentationContext.backgroundNode)
         strongSelf.shadowNode.setType(type: backgroundType, hasWallpaper: hasWallpaper, graphics: graphics)
         
-        // MARK: GuGram - Apply deleted message visual effects
+        // MARK: GuGram - Apply deleted/edited message visual effects
         let isMessageDeleted = item.message.gugramAttribute.isDeleted
+        let isMessageEditedWithHistory = GuGramSettings.shared.isEditedMessagesEnabled && !item.message.gugramAttribute.editHistory.isEmpty
         strongSelf.applyDeletedMessageEffect(isDeleted: isMessageDeleted, backgroundFrame: backgroundFrame, animation: animation)
-        
+        strongSelf.applyEditedMessageEffect(isEdited: isMessageEditedWithHistory && !isMessageDeleted, backgroundFrame: backgroundFrame, animation: animation)
+        strongSelf.applyEditHistoryMessageStyle(isEditHistory: isEditHistoryMessage, backgroundFrame: backgroundFrame, isMessageDeleted: isMessageDeleted)
+
         strongSelf.backgroundType = backgroundType
         
         let previousBackgroundFrame = strongSelf.backgroundNode.backgroundFrame
@@ -7199,6 +7212,96 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
             } else {
                 self.backgroundNode.alpha = 1.0
                 self.backgroundWallpaperNode.alpha = 1.0
+                for contentNode in self.contentNodes {
+                    contentNode.alpha = 1.0
+                }
+            }
+        }
+    }
+    
+    // MARK: - GuGram Edited Message Effects
+    
+    private func applyEditedMessageEffect(isEdited: Bool, backgroundFrame: CGRect, animation: ListViewItemUpdateAnimation) {
+        if isEdited && backgroundFrame.width > 1.0 && backgroundFrame.height > 1.0 {
+            let glowNode: ASDisplayNode
+            if let existingGlow = self.editedMessageGlowNode {
+                glowNode = existingGlow
+            } else {
+                glowNode = ASDisplayNode()
+                glowNode.isLayerBacked = true
+                self.editedMessageGlowNode = glowNode
+                self.mainContextSourceNode.contentNode.insertSubnode(glowNode, at: 0)
+            }
+            
+            let glowInset: CGFloat = 10.0
+            let glowFrame = backgroundFrame.insetBy(dx: -glowInset, dy: -glowInset)
+            glowNode.frame = glowFrame
+            
+            glowNode.layer.cornerRadius = 18.0
+            glowNode.layer.shadowColor = UIColor(red: 0.2, green: 0.65, blue: 1.0, alpha: 1.0).cgColor
+            glowNode.layer.shadowOffset = CGSize.zero
+            glowNode.layer.shadowRadius = 14.0
+            glowNode.layer.shadowOpacity = 0.75
+            glowNode.layer.shadowPath = UIBezierPath(roundedRect: CGRect(origin: .zero, size: glowFrame.size), cornerRadius: 18.0).cgPath
+            glowNode.backgroundColor = UIColor(red: 0.2, green: 0.65, blue: 1.0, alpha: 0.12)
+            
+            if glowNode.layer.animation(forKey: "gugramEditedPulse") == nil {
+                let pulse = CABasicAnimation(keyPath: "shadowOpacity")
+                pulse.fromValue = 0.45
+                pulse.toValue = 0.85
+                pulse.duration = 1.8
+                pulse.autoreverses = true
+                pulse.repeatCount = .infinity
+                glowNode.layer.add(pulse, forKey: "gugramEditedPulse")
+            }
+            
+            if case .System = animation {
+                UIView.animate(withDuration: 0.2) {
+                    glowNode.alpha = 1.0
+                }
+            } else {
+                glowNode.alpha = 1.0
+            }
+        } else {
+            if let glowNode = self.editedMessageGlowNode {
+                glowNode.layer.removeAnimation(forKey: "gugramEditedPulse")
+                if case .System = animation {
+                    UIView.animate(withDuration: 0.2, animations: {
+                        glowNode.alpha = 0.0
+                    }, completion: { _ in
+                        glowNode.removeFromSupernode()
+                    })
+                } else {
+                    glowNode.removeFromSupernode()
+                }
+                self.editedMessageGlowNode = nil
+            }
+        }
+    }
+
+    // MARK: - GuGram Edit History Message Styling
+
+    private func applyEditHistoryMessageStyle(isEditHistory: Bool, backgroundFrame: CGRect, isMessageDeleted: Bool) {
+        if isEditHistory {
+            // Apply мuted/subdued styling for edit history messages
+            let historyAlpha: CGFloat = 0.65 // Приглушённая прозрачность
+
+            // Apply transparency to make it look subordinate
+            self.backgroundNode.alpha = historyAlpha
+            self.backgroundWallpaperNode.alpha = historyAlpha
+
+            for contentNode in self.contentNodes {
+                contentNode.alpha = historyAlpha + 0.05 // Контент чуть менее прозрачный
+            }
+
+            // Add subtle gray tint to background to further differentiate
+            // This will blend with the existing bubble color
+        } else {
+            // Normal message - ensure full opacity (unless deleted message)
+            if !isMessageDeleted {
+                self.backgroundNode.alpha = 1.0
+                self.backgroundWallpaperNode.alpha = 1.0
+
                 for contentNode in self.contentNodes {
                     contentNode.alpha = 1.0
                 }
