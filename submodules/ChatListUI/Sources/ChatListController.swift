@@ -722,7 +722,7 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
         
         if enableDebugActions {
             self.tabBarItemDebugTapAction = {
-                preconditionFailure("debug tap")
+                // Intentionally left empty to avoid crashes on rapid tab taps.
             }
         }
         
@@ -2117,10 +2117,18 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
             if self.previewing {
                 self.storiesReady.set(.single(true))
             } else {
-                self.storySubscriptionsDisposable = (self.context.engine.messages.storySubscriptions(isHidden: self.location == .chatList(groupId: .archive))
-                |> deliverOnMainQueue).startStrict(next: { [weak self] rawStorySubscriptions in
+                let hideStoriesSignal = GuGramSettings.shared.hideStoriesSignal
+                |> distinctUntilChanged
+                
+                self.storySubscriptionsDisposable = (combineLatest(self.context.engine.messages.storySubscriptions(isHidden: self.location == .chatList(groupId: .archive)), hideStoriesSignal)
+                |> deliverOnMainQueue).startStrict(next: { [weak self] rawStorySubscriptions, hideStories in
                     guard let self else {
                         return
+                    }
+                    
+                    var rawStorySubscriptions = rawStorySubscriptions
+                    if hideStories {
+                        rawStorySubscriptions = EngineStorySubscriptions(accountItem: nil, items: [], hasMoreToken: nil)
                     }
                     
                     self.rawStorySubscriptions = rawStorySubscriptions
@@ -6643,6 +6651,9 @@ private final class ChatListLocationContext {
             return lhs == rhs
         })
         
+        let hideStoriesSignal = GuGramSettings.shared.hideStoriesSignal
+        |> distinctUntilChanged
+        
         let passcode = context.sharedContext.accountManager.accessChallengeData()
         |> map { view -> (Bool, Bool) in
             let data = view.data
@@ -6711,6 +6722,7 @@ private final class ChatListLocationContext {
         case .chatList:
             if !hideNetworkActivityStatus {
                 self.titleDisposable = combineLatest(queue: .mainQueue(),
+                    hideStoriesSignal,
                     networkState,
                     hasProxy,
                     passcode,
@@ -6719,12 +6731,13 @@ private final class ChatListLocationContext {
                     peerStatus,
                     parentController.updatedPresentationData.1,
                     storyPostingAvailable
-                ).startStrict(next: { [weak self] networkState, proxy, passcode, stateAndFilterId, isReorderingTabs, peerStatus, presentationData, storyPostingAvailable in
+                ).startStrict(next: { [weak self] hideStories, networkState, proxy, passcode, stateAndFilterId, isReorderingTabs, peerStatus, presentationData, storyPostingAvailable in
                     guard let self else {
                         return
                     }
                     
                     self.updateChatList(
+                        hideStories: hideStories,
                         networkState: networkState,
                         proxy: proxy,
                         passcode: passcode,
@@ -6952,6 +6965,7 @@ private final class ChatListLocationContext {
     }
     
     private func updateChatList(
+        hideStories: Bool,
         networkState: AccountNetworkState,
         proxy: (Bool, Bool),
         passcode: (Bool, Bool),
@@ -7068,7 +7082,7 @@ private final class ChatListLocationContext {
                     }
                 }
                 
-                if storyPostingAvailable {
+                if storyPostingAvailable && !hideStories {
                     self.storyButton = AnyComponentWithIdentity(id: "story", component: AnyComponent(NavigationButtonComponent(
                         content: .icon(imageName: "Chat List/AddStoryIcon"),
                         pressed: { [weak self] _ in
