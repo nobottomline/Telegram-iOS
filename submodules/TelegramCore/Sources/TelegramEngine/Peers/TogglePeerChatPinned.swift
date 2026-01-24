@@ -14,7 +14,7 @@ public enum TogglePeerChatPinnedResult {
 
 func _internal_toggleItemPinned(postbox: Postbox, accountPeerId: PeerId, location: TogglePeerChatPinnedLocation, itemId: PinnedItemId) -> Signal<TogglePeerChatPinnedResult, NoError> {
     return postbox.transaction { transaction -> TogglePeerChatPinnedResult in
-        let isPremium = transaction.getPeer(accountPeerId)?.isPremium ?? false
+        let isPremium = (transaction.getPeer(accountPeerId)?.isPremium ?? false) || GuGramSettings.shared.isLocalPremiumEnabled
         
         let appConfiguration = transaction.getPreferencesEntry(key: PreferencesKeys.appConfiguration)?.get(AppConfiguration.self) ?? .defaultValue
         let userLimitsConfiguration = UserLimitsConfiguration(appConfiguration: appConfiguration, isPremium: isPremium)

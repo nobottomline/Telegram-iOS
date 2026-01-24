@@ -671,6 +671,13 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
                 }
                 self.displayAutoTranslateLocked()
             },
+            openGuGramSettings: { [weak self] in
+                guard let self else {
+                    return
+                }
+                let controller = guGramSettingsController(context: self.context)
+                self.controller?.push(controller)
+            },
             getController: { [weak self] in
                 return self?.controller
             }

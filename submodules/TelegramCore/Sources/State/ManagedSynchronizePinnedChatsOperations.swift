@@ -206,7 +206,11 @@ private func synchronizePinnedChats(transaction: Transaction, postbox: Postbox, 
             
             var resultingItemIds: [PinnedItemId]
             if initialRemoteItemIds == localItemIds {
-                resultingItemIds = remoteItemIds
+                if GuGramSettings.shared.isLocalPremiumEnabled && localItemIds.count > 5 {
+                    resultingItemIds = localItemIds
+                } else {
+                    resultingItemIds = remoteItemIds
+                }
             } else {
                 let locallyRemovedFromRemoteItemIds = Set(initialRemoteItemIdsWithoutSecretChats).subtracting(Set(localItemIdsWithoutSecretChats))
                 let remotelyRemovedItemIds = Set(initialRemoteItemIdsWithoutSecretChats).subtracting(Set(remoteItemIds))
@@ -218,7 +222,15 @@ private func synchronizePinnedChats(transaction: Transaction, postbox: Postbox, 
             return postbox.transaction { transaction -> Signal<Void, NoError> in
                 updatePeers(transaction: transaction, accountPeerId: accountPeerId, peers: parsedPeers)
                 
-                transaction.setPinnedItemIds(groupId: groupId, itemIds: resultingItemIds)
+                let isRealPremium = transaction.getPeer(accountPeerId)?.isPremium ?? false
+                let serverLimit = isRealPremium ? 10 : 5
+                let isLocalPremium = GuGramSettings.shared.isLocalPremiumEnabled
+                
+                if isLocalPremium && resultingItemIds.count > serverLimit {
+                    // Do not overwrite local pins
+                } else {
+                    transaction.setPinnedItemIds(groupId: groupId, itemIds: resultingItemIds)
+                }
                 
                 transaction.updateCurrentPeerNotificationSettings(notificationSettings)
                 
@@ -260,7 +272,12 @@ private func synchronizePinnedChats(transaction: Transaction, postbox: Postbox, 
                 if remoteItemIds == resultingItemIds {
                     return .complete()
                 } else {
+                    if isLocalPremium && resultingItemIds.count > serverLimit {
+                        return .complete()
+                    }
+                    
                     var inputDialogPeers: [Api.InputDialogPeer] = []
+                    
                     for itemId in resultingItemIds {
                         switch itemId {
                             case let .peer(peerId):

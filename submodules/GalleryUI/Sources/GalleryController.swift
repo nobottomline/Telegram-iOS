@@ -500,12 +500,15 @@ private enum GalleryMessageHistoryView {
     }
     
     var peerIsCopyProtected: Bool {
+        return false // GuGram: Always allow save/copy
+        /*
         switch self {
         case let .view(_, peerIsCopyProtected):
             return peerIsCopyProtected
         case .entries:
             return false
         }
+        */
     }
 }
 

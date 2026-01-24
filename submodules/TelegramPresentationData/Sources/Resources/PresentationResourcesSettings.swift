@@ -86,6 +86,7 @@ public struct PresentationResourcesSettings {
     public static let affiliateProgram = renderIcon(name: "Settings/Menu/AffiliateProgram")
     public static let earnStars = renderIcon(name: "Settings/Menu/EarnStars")
     public static let channelMessages = renderIcon(name: "Chat/Info/ChannelMessages", backgroundColors: [UIColor(rgb: 0x5856D6)])
+    public static let gugram = renderIcon(name: "Settings/Menu/Premium", backgroundColors: [UIColor(rgb: 0x007aff), UIColor(rgb: 0x5ac8fa)])
     
     public static let premium = generateImage(CGSize(width: 29.0, height: 29.0), contextGenerator: { size, context in
         let bounds = CGRect(origin: CGPoint(), size: size)

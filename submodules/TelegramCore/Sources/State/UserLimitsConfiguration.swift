@@ -155,6 +155,15 @@ extension UserLimitsConfiguration {
         self.maxFoldersCount = getValue("dialog_filters_limit", orElse: defaultValue.maxFoldersCount)
         self.maxFolderChatsCount = getValue("dialog_filters_chats_limit", orElse: defaultValue.maxFolderChatsCount)
         self.maxCaptionLength = getValue("caption_length_limit", orElse: defaultValue.maxCaptionLength)
+        
+        if isPremium {
+            self.maxPinnedChatCount = max(self.maxPinnedChatCount, 100)
+            self.maxPinnedSavedChatCount = max(self.maxPinnedSavedChatCount, 100)
+            self.maxArchivedPinnedChatCount = max(self.maxArchivedPinnedChatCount, 200)
+            self.maxChannelsCount = max(self.maxChannelsCount, 1000)
+            self.maxFoldersCount = max(self.maxFoldersCount, 30)
+            self.maxFolderChatsCount = max(self.maxFolderChatsCount, 200)
+        }
         self.maxUploadFileParts = getValue("upload_max_fileparts", orElse: defaultValue.maxUploadFileParts)
         self.maxAboutLength = getValue("about_length_limit", orElse: defaultValue.maxAboutLength)
         self.maxAnimatedEmojisInText = getGeneralValue("message_animated_emoji_max", orElse: defaultValue.maxAnimatedEmojisInText)
