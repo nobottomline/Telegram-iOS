@@ -2996,7 +2996,11 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                             }
                         }
                     } else {
-                        attributedText = NSAttributedString(string: messageText, font: textFont, textColor: theme.messageTextColor)
+                        if let lastMessage = messages.last, lastMessage._asMessage().gugramAttribute.isDeleted, !GuGramSettings.shared.isDeletedMessagesEnabled {
+                            attributedText = NSAttributedString(string: "Message deleted", font: italicTextFont, textColor: theme.messageTextColor)
+                        } else {
+                            attributedText = NSAttributedString(string: messageText, font: textFont, textColor: theme.messageTextColor)
+                        }
                         
                         var peerText: String?
                         if case .groupReference = item.content {

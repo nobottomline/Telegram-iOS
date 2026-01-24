@@ -324,33 +324,52 @@ func chatHistoryEntriesForView(
         entries = flatEntries
     }
 
+    // MARK: GuGram Deleted Messages Filtering
+    
+    if !GuGramSettings.shared.isDeletedMessagesEnabled {
+        var filteredEntries: [ChatHistoryEntry] = []
+        for entry in entries {
+            if case let .MessageEntry(message, _, _, _, _, _) = entry {
+                if message.gugramAttribute.isDeleted {
+                    continue
+                }
+            }
+            filteredEntries.append(entry)
+        }
+        entries = filteredEntries
+    }
+    
+
     // MARK: GuGram Edit History Inline Expansion
-    if GuGramSettings.shared.isEditedMessagesEnabled {
+    if GuGramSettings.shared.isEditedMessagesEnabled && !associatedData.expandedEditHistoryMessageIds.isEmpty {
         var expandedEntries: [ChatHistoryEntry] = []
         for entry in entries {
-            expandedEntries.append(entry)
-
-            if case let .MessageEntry(message, presentationData, isRead, location, selection, attributes) = entry {
+            if case let .MessageEntry(message, presentationData, isRead, _, selection, _) = entry {
                 // Check if this message has edit history and is expanded
                 let editHistory = message.gugramAttribute.editHistory
                 if !editHistory.isEmpty && associatedData.expandedEditHistoryMessageIds.contains(message.id) {
+                    var entriesToInsert: [ChatHistoryEntry] = []
                     // Insert edit history entries in reverse chronological order (newest first)
                     for (index, historyEntry) in editHistory.enumerated().reversed() {
                         // Create synthetic message for edit history entry
-                        let syntheticStableId = UInt32.max - message.stableId - UInt32(index + 1)
-                        // Use a very large ID to avoid conflicts with real messages
-                        // Format: 2147000000 + original_id * 100 + index
-                        // This ensures uniqueness while staying within Int32 range
-                        let syntheticId = Int32(2147000000) + (message.id.id % 10000) * 100 + Int32(index + 1)
+                        // Use a large ID to avoid conflicts with real messages
+                        // Format: 1000000000 + original_id_subset * 10 + index
+                        let safeId = Int64(message.id.id)
+                        let syntheticId = Int32(1000000000) + Int32((abs(safeId) % 100000) * 10) + Int32(index + 1)
+                        
+                        // Use bitwise NOT to ensure stableId is in a completely different range from real messages
+                        // This prevents collisions in the UI diffing algorithm (MergeLists)
+                        let syntheticStableId = ~message.stableId ^ UInt32(index + 1)
+                        
                         let syntheticMessage = Message(
                             stableId: syntheticStableId,
                             stableVersion: 0,
-                            id: MessageId(peerId: message.id.peerId, namespace: message.id.namespace, id: syntheticId),
+                            id: MessageId(peerId: message.id.peerId, namespace: Namespaces.Message.Local, id: syntheticId),
                             globallyUniqueId: nil,
                             groupingKey: nil,
                             groupInfo: nil,
                             threadId: message.threadId,
-                            timestamp: historyEntry.editTimestamp,
+                            timestamp: message.timestamp, // Maintain list sorting
                             flags: message.flags,
                             tags: message.tags,
                             globalTags: message.globalTags,
@@ -368,14 +387,25 @@ func chatHistoryEntriesForView(
                             associatedMessages: SimpleDictionary(),
                             associatedMessageIds: [],
                             associatedMedia: [:],
-                            associatedThreadInfo: nil,
-                            associatedStories: [:]
-                        )
-
-                        expandedEntries.append(.MessageEntry(syntheticMessage, presentationData, isRead, location, selection, attributes))
+                                                            associatedThreadInfo: nil,
+                                                        associatedStories: [:]
+                                                    )
+                            
+                                                    entriesToInsert.append(.MessageEntry(syntheticMessage, presentationData, isRead, nil, selection, ChatMessageEntryAttributes()))
+                                                }
+                                                
+                                                if reverse {                        // In a reversed list (Descending order), newer IDs (Synthetic) must come BEFORE older IDs (Original)
+                        expandedEntries.append(contentsOf: entriesToInsert)
+                        expandedEntries.append(entry)
+                    } else {
+                        // In a non-reversed list (Ascending order), newer IDs must come AFTER older IDs
+                        expandedEntries.append(entry)
+                        expandedEntries.append(contentsOf: entriesToInsert.reversed())
                     }
+                    continue
                 }
             }
+            expandedEntries.append(entry)
         }
         entries = expandedEntries
     }

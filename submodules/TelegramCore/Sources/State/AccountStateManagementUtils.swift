@@ -4068,6 +4068,16 @@ func replayFinalState(
                     }
                 }
             
+                // MARK: GuGram EditedMessages Background Interception
+                if GuGramSettings.shared.isEditedMessagesEnabled {
+                    for i in 0 ..< messages.count {
+                        if case let .Id(id) = messages[i].id, let previousMessage = transaction.getMessage(id) {
+                            messages[i] = messages[i].updatingGuGramAttributeOnEdit(previousMessage: previousMessage)
+                        }
+                    }
+                }
+                //
+
                 let _ = transaction.addMessages(messages, location: location)
                 if case .UpperHistoryBlock = location {
                     for message in messages {
@@ -4243,7 +4253,12 @@ func replayFinalState(
                 }
                 deletedMessageIds.append(contentsOf: allIds.map { .global($0) })
             case let .DeleteMessages(ids):
-                _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: { id, add, remove in
+                // MARK: GuGram DeletedMessages
+                let idsToDelete = GuGramDeletedMessages.markMessagesAsDeleted(
+                    ids: ids,
+                    transaction: transaction
+                )
+                _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: idsToDelete, manualAddMessageThreadStatsDifference: { id, add, remove in
                     addMessageThreadStatsDifference(threadKey: id, remove: remove, addedMessagePeer: nil, addedMessageId: nil, isOutgoing: false)
                 })
                 deletedMessageIds.append(contentsOf: ids.map { .messageId($0) })

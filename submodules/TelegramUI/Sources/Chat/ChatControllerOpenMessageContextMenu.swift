@@ -60,9 +60,9 @@ extension ChatControllerImpl {
             let _ = combineLatest(queue: .mainQueue(),
                 self.context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: self.context.account.peerId)),
                 contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState: self.presentationInterfaceState, context: self.context, messages: updatedMessages, controllerInteraction: self.controllerInteraction, selectAll: selectAll, interfaceInteraction: self.interfaceInteraction, messageNode: node as? ChatMessageItemView),
-                peerMessageAllowedReactions(context: self.context, message: topMessage),
-                peerMessageSelectedReactions(context: self.context, message: topMessage),
-                topMessageReactions(context: self.context, message: topMessage, subPeerId: self.chatLocation.threadId.flatMap(EnginePeer.Id.init)),
+                message.isGuGramEditHistoryMessage ? .single((nil, false)) : peerMessageAllowedReactions(context: self.context, message: topMessage),
+                message.isGuGramEditHistoryMessage ? .single((Set(), Set())) : peerMessageSelectedReactions(context: self.context, message: topMessage),
+                message.isGuGramEditHistoryMessage ? .single([]) : topMessageReactions(context: self.context, message: topMessage, subPeerId: self.chatLocation.threadId.flatMap(EnginePeer.Id.init)),
                 ApplicationSpecificNotice.getChatTextSelectionTips(accountManager: self.context.sharedContext.accountManager)
             ).startStandalone(next: { [weak self] peer, actions, allowedReactionsAndStars, selectedReactions, topReactions, chatTextSelectionTips in
                 guard let self else {
@@ -314,7 +314,9 @@ extension ChatControllerImpl {
                 }
                 
                 let source: ContextContentSource
-                if let location = location {
+                if message.isGuGramEditHistoryMessage, let messageNode = node as? ChatMessageItemView, let contentNode = messageNode.getMessageContextSourceNode(stableId: message.stableId) {
+                    source = .extracted(GuGramContextExtractedContentSource(contentNode: contentNode, keepDefaultContentTouches: keepDefaultContentTouches))
+                } else if let location = location {
                     source = .location(ChatMessageContextLocationContentSource(controller: self, location: node.view.convert(node.bounds, to: nil).origin.offsetBy(dx: location.x, dy: location.y)))
                 } else {
                     source = .extracted(ChatMessageContextExtractedContentSource(chatController: self, chatNode: self.chatDisplayNode, engine: self.context.engine, message: message, selectAll: selectAll, keepDefaultContentTouches: keepDefaultContentTouches))
@@ -680,5 +682,32 @@ final class ChatControllerContextReferenceContentSource: ContextReferenceContent
     
     func transitionInfo() -> ContextControllerReferenceViewInfo? {
         return ContextControllerReferenceViewInfo(referenceView: self.sourceView, contentAreaInScreenSpace: UIScreen.main.bounds.inset(by: self.insets), insets: self.contentInsets)
+    }
+}
+
+final class GuGramContextExtractedContentSource: ContextExtractedContentSource {
+    let keepInPlace: Bool = false
+    let ignoreContentTouches: Bool = false
+    let blurBackground: Bool = true
+    let centerVertically: Bool = false
+    let keepDefaultContentTouches: Bool
+    
+    private let contentNode: ContextExtractedContentContainingNode
+    
+    var shouldBeDismissed: Signal<Bool, NoError> {
+        return .single(false)
+    }
+    
+    init(contentNode: ContextExtractedContentContainingNode, keepDefaultContentTouches: Bool) {
+        self.contentNode = contentNode
+        self.keepDefaultContentTouches = keepDefaultContentTouches
+    }
+    
+    func takeView() -> ContextControllerTakeViewInfo? {
+        return ContextControllerTakeViewInfo(containingItem: .node(self.contentNode), contentAreaInScreenSpace: UIScreen.main.bounds)
+    }
+    
+    func putBack() -> ContextControllerPutBackViewInfo? {
+        return ContextControllerPutBackViewInfo(contentAreaInScreenSpace: UIScreen.main.bounds)
     }
 }

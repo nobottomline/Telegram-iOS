@@ -484,8 +484,23 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
     guard let interfaceInteraction = interfaceInteraction, let controllerInteraction = controllerInteraction else {
         return .single(ContextController.Items(content: .list([])))
     }
-    if let message = messages.first, message.id.namespace < 0 {
-        return .single(ContextController.Items(content: .list([])))
+    if let message = messages.first {
+        if message.isGuGramEditHistoryMessage {
+            let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+            var actions: [ContextMenuItem] = []
+            actions.append(.action(ContextMenuActionItem(text: presentationData.strings.Conversation_ContextMenuCopy, icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Copy"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, f in
+                UIPasteboard.general.string = message.text
+                Queue.mainQueue().after(0.2, {
+                    controllerInteraction.displayUndo(.copy(text: presentationData.strings.Conversation_MessageCopied))
+                })
+                f(.default)
+            })))
+            return .single(ContextController.Items(content: .list(actions)))
+        } else if message.id.namespace < 0 {
+            return .single(ContextController.Items(content: .list([])))
+        }
     }
     
     var isEmbeddedMode = false

@@ -16,6 +16,9 @@ public final class GuGramSettings {
     private let editedMessagesKey = "GuGram_EditedMessages"
     private let editedMessagesPromise = ValuePromise<Bool>(false)
     
+    private let deletedMessagesKey = "gg_showDeletedMessages"
+    private let deletedMessagesPromise = ValuePromise<Bool>(false)
+    
     public var ghostModeSignal: Signal<Bool, NoError> {
         return self.ghostModePromise.get()
     }
@@ -30,6 +33,10 @@ public final class GuGramSettings {
 
     public var editedMessagesSignal: Signal<Bool, NoError> {
         return self.editedMessagesPromise.get()
+    }
+    
+    public var deletedMessagesSignal: Signal<Bool, NoError> {
+        return self.deletedMessagesPromise.get()
     }
     
     public var isGhostModeEnabled: Bool {
@@ -75,10 +82,24 @@ public final class GuGramSettings {
         }
     }
     
+    public var isDeletedMessagesEnabled: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: deletedMessagesKey) == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: deletedMessagesKey)
+        }
+        set {
+            UserDefaults.standard.setValue(newValue, forKey: deletedMessagesKey)
+            self.deletedMessagesPromise.set(newValue)
+        }
+    }
+    
     init() {
         self.ghostModePromise.set(self.isGhostModeEnabled)
         self.localPremiumPromise.set(self.isLocalPremiumEnabled)
         self.hideStoriesPromise.set(self.isHideStoriesEnabled)
         self.editedMessagesPromise.set(self.isEditedMessagesEnabled)
+        self.deletedMessagesPromise.set(self.isDeletedMessagesEnabled)
     }
 }

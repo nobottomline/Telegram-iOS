@@ -30,27 +30,32 @@ public final class GuGramEditHistoryEntry: PostboxCoding, Equatable {
 
 public class GuGramMessageAttribute: MessageAttribute {
     public var isDeleted: Bool
+    public var isPreserved: Bool
     public var originalText: String?
     public var editHistory: [GuGramEditHistoryEntry]
 
     public init(
         isDeleted: Bool = false,
+        isPreserved: Bool = false,
         originalText: String? = nil,
         editHistory: [GuGramEditHistoryEntry] = []
     ) {
         self.isDeleted = isDeleted
+        self.isPreserved = isPreserved
         self.originalText = originalText
         self.editHistory = editHistory
     }
 
     public required init(decoder: PostboxDecoder) {
         self.isDeleted = decoder.decodeBoolForKey("gg_isDeleted", orElse: false)
+        self.isPreserved = decoder.decodeBoolForKey("gg_isPreserved", orElse: false)
         self.originalText = decoder.decodeOptionalStringForKey("gg_originalText")
         self.editHistory = decoder.decodeObjectArrayWithDecoderForKey("gg_editHistory")
     }
 
     public func encode(_ encoder: PostboxEncoder) {
         encoder.encodeBool(isDeleted, forKey: "gg_isDeleted")
+        encoder.encodeBool(isPreserved, forKey: "gg_isPreserved")
         if let originalText {
             encoder.encodeString(originalText, forKey: "gg_originalText")
         }
@@ -60,7 +65,7 @@ public class GuGramMessageAttribute: MessageAttribute {
     }
     
     public func clone() -> GuGramMessageAttribute {
-        return GuGramMessageAttribute(isDeleted: self.isDeleted, originalText: self.originalText, editHistory: self.editHistory)
+        return GuGramMessageAttribute(isDeleted: self.isDeleted, isPreserved: self.isPreserved, originalText: self.originalText, editHistory: self.editHistory)
     }
 }
 

@@ -27,6 +27,7 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
     case localPremium(PresentationTheme, String, Bool)
     case hideStories(PresentationTheme, String, Bool)
     case editedMessages(PresentationTheme, String, Bool)
+    case deletedMessages(PresentationTheme, String, Bool)
     case info(PresentationTheme, String)
     
     var section: ItemListSectionId {
@@ -39,7 +40,8 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
         case .localPremium: return 1
         case .hideStories: return 2
         case .editedMessages: return 3
-        case .info: return 4
+        case .deletedMessages: return 4
+        case .info: return 5
         }
     }
     
@@ -62,6 +64,11 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
             return false
         case let .editedMessages(lhsTheme, lhsText, lhsValue):
             if case let .editedMessages(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .deletedMessages(lhsTheme, lhsText, lhsValue):
+            if case let .deletedMessages(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
                 return true
             }
             return false
@@ -95,19 +102,24 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
             return ItemListSwitchItem(presentationData: presentationData, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
                 GuGramSettings.shared.isEditedMessagesEnabled = value
             })
+        case let .deletedMessages(_, text, value):
+            return ItemListSwitchItem(presentationData: presentationData, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
+                GuGramSettings.shared.isDeletedMessagesEnabled = value
+            })
         case let .info(_, text):
             return ItemListTextItem(presentationData: presentationData, text: .plain(text), sectionId: self.section)
         }
     }
 }
 
-private func guGramSettingsControllerEntries(presentationData: PresentationData, ghostMode: Bool, localPremium: Bool, hideStories: Bool, editedMessages: Bool) -> [GuGramSettingsEntry] {
+private func guGramSettingsControllerEntries(presentationData: PresentationData, ghostMode: Bool, localPremium: Bool, hideStories: Bool, editedMessages: Bool, deletedMessages: Bool) -> [GuGramSettingsEntry] {
     var entries: [GuGramSettingsEntry] = []
     
     entries.append(.ghostMode(presentationData.theme, "Ghost Mode", ghostMode))
     entries.append(.localPremium(presentationData.theme, "Local Premium", localPremium))
     entries.append(.hideStories(presentationData.theme, "Hide Stories", hideStories))
-    entries.append(.editedMessages(presentationData.theme, "Edit History", editedMessages))
+    entries.append(.editedMessages(presentationData.theme, "Show Edit History", editedMessages))
+    entries.append(.deletedMessages(presentationData.theme, "Show Deleted Messages & Chats", deletedMessages))
     entries.append(.info(presentationData.theme, "Local Premium unlocks client-side features like translations and icons."))
     
     return entries
@@ -121,10 +133,11 @@ public func guGramSettingsController(context: AccountContext) -> ViewController 
         GuGramSettings.shared.ghostModeSignal,
         GuGramSettings.shared.localPremiumSignal,
         GuGramSettings.shared.hideStoriesSignal,
-        GuGramSettings.shared.editedMessagesSignal
+        GuGramSettings.shared.editedMessagesSignal,
+        GuGramSettings.shared.deletedMessagesSignal
     )
-    |> map { presentationData, ghostMode, localPremium, hideStories, editedMessages -> (ItemListControllerState, (ItemListNodeState, Any)) in
-        let entries = guGramSettingsControllerEntries(presentationData: presentationData, ghostMode: ghostMode, localPremium: localPremium, hideStories: hideStories, editedMessages: editedMessages)
+    |> map { presentationData, ghostMode, localPremium, hideStories, editedMessages, deletedMessages -> (ItemListControllerState, (ItemListNodeState, Any)) in
+        let entries = guGramSettingsControllerEntries(presentationData: presentationData, ghostMode: ghostMode, localPremium: localPremium, hideStories: hideStories, editedMessages: editedMessages, deletedMessages: deletedMessages)
         
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("GuGram Settings"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
         

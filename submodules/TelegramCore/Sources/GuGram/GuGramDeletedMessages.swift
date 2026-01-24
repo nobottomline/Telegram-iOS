@@ -22,10 +22,6 @@ extension GuGramDeletedMessages {
         globalIds: [Int32],
         transaction: Transaction
     ) -> [Int32] {
-        guard enabled else {
-            return globalIds
-        }
-
         var protectedIds: [Int32] = []
 
         for globalId in globalIds {
@@ -53,10 +49,6 @@ extension GuGramDeletedMessages {
         ids: [MessageId],
         transaction: Transaction
     ) -> [MessageId] {
-        guard enabled else {
-            return ids
-        }
-
         var protectedIds: [MessageId] = []
 
         for id in ids {
@@ -77,6 +69,51 @@ extension GuGramDeletedMessages {
 
         return Array(idsToDelete)
     }
+
+    /// Помечает диалог как сохраненный
+    static func preserveChat(
+        peerId: PeerId,
+        transaction: Transaction
+    ) {
+        // Берем последнее сообщение в диалоге и помечаем его как сохраненное
+        if let index = transaction.getTopPeerMessageIndex(peerId: peerId) {
+            transaction.updateGuGramAttribute(messageId: index.id) {
+                $0.isPreserved = true
+            }
+        }
+    }
+
+    /// Проверяет, нужно ли физически удалять диалог
+    static func shouldDeleteDialog(
+        peerId: PeerId,
+        transaction: Transaction
+    ) -> Bool {
+        // Если у последнего сообщения есть флаг isPreserved или isDeleted, 
+        // значит мы хотим сохранить этот чат в списке
+        if let index = transaction.getTopPeerMessageIndex(peerId: peerId) {
+            if let message = transaction.getMessage(index.id) {
+                let attr = message.gugramAttribute
+                if attr.isPreserved || attr.isDeleted {
+                    return false
+                }
+            }
+        }
+        
+        return true
+    }
+
+    /// Проверяет, помечен ли пир как сохраненный
+    static func isPreserved(
+        peerId: PeerId,
+        transaction: Transaction
+    ) -> Bool {
+        if let index = transaction.getTopPeerMessageIndex(peerId: peerId) {
+            if let message = transaction.getMessage(index.id) {
+                return message.gugramAttribute.isPreserved
+            }
+        }
+        return false
+    }
     
     /// Помечает сообщения в диапазоне как удаленные
     /// Используется для перехвата deleteMessagesInRange
@@ -87,10 +124,6 @@ extension GuGramDeletedMessages {
         maxId: MessageId.Id,
         transaction: Transaction
     ) {
-        guard enabled else {
-            return
-        }
-        
         // Итерируем по всем сообщениям пира и помечаем те, что в диапазоне
         transaction.withAllMessages(peerId: peerId, namespace: namespace) { message in
             if message.id.id >= minId && message.id.id <= maxId {

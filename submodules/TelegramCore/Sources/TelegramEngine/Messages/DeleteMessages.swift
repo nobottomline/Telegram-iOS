@@ -90,55 +90,69 @@ func _internal_deleteMessagesInRange(transaction: Transaction, mediaBox: MediaBo
 }
 
 func _internal_deleteAllMessagesWithAuthor(transaction: Transaction, mediaBox: MediaBox, peerId: PeerId, authorId: PeerId, namespace: MessageId.Namespace) {
-    var resourceIds: [MediaResourceId] = []
-    transaction.removeAllMessagesWithAuthor(peerId, authorId: authorId, namespace: namespace, forEachMedia: { media in
-        addMessageMediaResourceIdsToRemove(media: media, resourceIds: &resourceIds)
-    })
-    if !resourceIds.isEmpty {
-        let _ = mediaBox.removeCachedResources(Array(Set(resourceIds))).start()
+    // MARK: GuGram Protection
+    transaction.withAllMessages(peerId: peerId, namespace: namespace) { message in
+        if message.author?.id == authorId {
+            transaction.updateGuGramAttribute(messageId: message.id) {
+                if !$0.isDeleted {
+                    $0.isDeleted = true
+                }
+            }
+        }
+        return true
     }
 }
 
 func _internal_deleteAllMessagesWithForwardAuthor(transaction: Transaction, mediaBox: MediaBox, peerId: PeerId, forwardAuthorId: PeerId, namespace: MessageId.Namespace) {
-    var resourceIds: [MediaResourceId] = []
-    transaction.removeAllMessagesWithForwardAuthor(peerId, forwardAuthorId: forwardAuthorId, namespace: namespace, forEachMedia: { media in
-        addMessageMediaResourceIdsToRemove(media: media, resourceIds: &resourceIds)
-    })
-    if !resourceIds.isEmpty {
-        let _ = mediaBox.removeCachedResources(Array(Set(resourceIds)), force: true).start()
+    // MARK: GuGram Protection
+    transaction.withAllMessages(peerId: peerId, namespace: namespace) { message in
+        if message.forwardInfo?.author?.id == forwardAuthorId {
+            transaction.updateGuGramAttribute(messageId: message.id) {
+                if !$0.isDeleted {
+                    $0.isDeleted = true
+                }
+            }
+        }
+        return true
     }
 }
 
 func _internal_clearHistory(transaction: Transaction, mediaBox: MediaBox, peerId: PeerId, threadId: Int64?, namespaces: MessageIdNamespaces) {
+    // MARK: GuGram Protection
     if peerId.namespace == Namespaces.Peer.SecretChat {
-        var resourceIds: [MediaResourceId] = []
-        transaction.withAllMessages(peerId: peerId, { message in
-            addMessageMediaResourceIdsToRemove(message: message, resourceIds: &resourceIds)
-            return true
-        })
-        if !resourceIds.isEmpty {
-            let _ = mediaBox.removeCachedResources(Array(Set(resourceIds)), force: true).start()
+        // Keep existing logic for secret chat resource cleanup if needed, but don't delete messages
+    }
+    
+    for namespace in [Namespaces.Message.Cloud, Namespaces.Message.SecretIncoming] {
+        if namespaces.contains(namespace) {
+             transaction.withAllMessages(peerId: peerId, namespace: namespace) { message in
+                 transaction.updateGuGramAttribute(messageId: message.id) {
+                     if !$0.isDeleted {
+                         $0.isDeleted = true
+                     }
+                 }
+                 return true
+             }
         }
     }
-    transaction.clearHistory(peerId, threadId: threadId, minTimestamp: nil, maxTimestamp: nil, namespaces: namespaces, forEachMedia: { _ in
-    })
 }
 
 func _internal_clearHistoryInRange(transaction: Transaction, mediaBox: MediaBox, peerId: PeerId, threadId: Int64?, minTimestamp: Int32, maxTimestamp: Int32, namespaces: MessageIdNamespaces) {
-    if peerId.namespace == Namespaces.Peer.SecretChat {
-        var resourceIds: [MediaResourceId] = []
-        transaction.withAllMessages(peerId: peerId, { message in
-            if message.timestamp >= minTimestamp && message.timestamp <= maxTimestamp {
-                addMessageMediaResourceIdsToRemove(message: message, resourceIds: &resourceIds)
-            }
-            return true
-        })
-        if !resourceIds.isEmpty {
-            let _ = mediaBox.removeCachedResources(Array(Set(resourceIds)), force: true).start()
+    // MARK: GuGram Protection
+    for namespace in [Namespaces.Message.Cloud, Namespaces.Message.SecretIncoming] {
+        if namespaces.contains(namespace) {
+             transaction.withAllMessages(peerId: peerId, namespace: namespace) { message in
+                 if message.timestamp >= minTimestamp && message.timestamp <= maxTimestamp {
+                     transaction.updateGuGramAttribute(messageId: message.id) {
+                         if !$0.isDeleted {
+                             $0.isDeleted = true
+                         }
+                     }
+                 }
+                 return true
+             }
         }
     }
-    transaction.clearHistory(peerId, threadId: threadId, minTimestamp: minTimestamp, maxTimestamp: maxTimestamp, namespaces: namespaces, forEachMedia: { _ in
-    })
 }
 
 public enum ClearCallHistoryError {

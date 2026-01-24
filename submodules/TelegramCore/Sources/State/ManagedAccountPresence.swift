@@ -17,20 +17,21 @@ private final class AccountPresenceManagerImpl {
     private var onlineTimer: SignalKitTimer?
     
     private var wasOnline: Bool = false
+    private var wasGhostMode: Bool = false
     
     init(queue: Queue, shouldKeepOnlinePresence: Signal<Bool, NoError>, network: Network) {
         self.queue = queue
         self.network = network
         
-        self.shouldKeepOnlinePresenceDisposable = (shouldKeepOnlinePresence
-        |> distinctUntilChanged
-        |> deliverOn(self.queue)).start(next: { [weak self] value in
+        self.shouldKeepOnlinePresenceDisposable = (combineLatest(shouldKeepOnlinePresence |> distinctUntilChanged, GuGramSettings.shared.ghostModeSignal)
+        |> deliverOn(self.queue)).start(next: { [weak self] isOnline, isGhostMode in
             guard let `self` = self else {
                 return
             }
-            if self.wasOnline != value {
-                self.wasOnline = value
-                self.updatePresence(value)
+            if self.wasOnline != isOnline || self.wasGhostMode != isGhostMode {
+                self.wasOnline = isOnline
+                self.wasGhostMode = isGhostMode
+                self.updatePresence(isOnline)
             }
         })
     }

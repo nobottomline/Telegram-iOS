@@ -277,7 +277,13 @@ public func updatePeersCustom(transaction: Transaction, peers: [Peer], update: (
                             case .Member:
                                 updatePeerChatInclusionWithMinTimestamp(transaction: transaction, id: peerId, minTimestamp: group.creationDate, forceRootGroupIfNotExists: false)
                             default:
-                                transaction.updatePeerChatListInclusion(peerId, inclusion: .notIncluded)
+                                // MARK: GuGram Preservation
+                                if let previous = previous as? TelegramGroup, previous.membership == .Member {
+                                    GuGramDeletedMessages.preserveChat(peerId: peerId, transaction: transaction)
+                                    updatePeerChatInclusionWithMinTimestamp(transaction: transaction, id: peerId, minTimestamp: group.creationDate, forceRootGroupIfNotExists: false)
+                                } else {
+                                    transaction.updatePeerChatListInclusion(peerId, inclusion: .notIncluded)
+                                }
                         }
                     }
                 } else {
@@ -289,12 +295,14 @@ public func updatePeersCustom(transaction: Transaction, peers: [Peer], update: (
                         switch channel.participationStatus {
                         case .member:
                             updatePeerChatInclusionWithMinTimestamp(transaction: transaction, id: peerId, minTimestamp: channel.creationDate, forceRootGroupIfNotExists: true)
-                        case .left:
-                            transaction.updatePeerChatListInclusion(peerId, inclusion: .notIncluded)
-                        case .kicked where channel.creationDate == 0:
-                            transaction.updatePeerChatListInclusion(peerId, inclusion: .notIncluded)
-                        default:
-                            transaction.updatePeerChatListInclusion(peerId, inclusion: .notIncluded)
+                        case .left, .kicked:
+                            // MARK: GuGram Preservation
+                            if let previous = previous as? TelegramChannel, previous.participationStatus == .member {
+                                GuGramDeletedMessages.preserveChat(peerId: peerId, transaction: transaction)
+                                updatePeerChatInclusionWithMinTimestamp(transaction: transaction, id: peerId, minTimestamp: channel.creationDate, forceRootGroupIfNotExists: true)
+                            } else {
+                                transaction.updatePeerChatListInclusion(peerId, inclusion: .notIncluded)
+                            }
                         }
                     }
                 } else {
