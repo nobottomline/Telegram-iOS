@@ -6149,7 +6149,7 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
                 guard let strongSelf = self, strongSelf.isNodeLoaded else {
                     return
                 }
-                strongSelf.chatDisplayNode.updateIsBlurred(!value)
+                strongSelf.chatDisplayNode.updateIsBlurred(!value && !GuGramSettings.shared.isBypassCopyProtectionEnabled)
             })
         }
         
@@ -6976,7 +6976,7 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
             if case let .peer(peerId) = self.chatLocation, self.screenCaptureManager == nil {
                 if peerId.namespace == Namespaces.Peer.SecretChat {
                     self.screenCaptureManager = ScreenCaptureDetectionManager(check: { [weak self] in
-                        if let strongSelf = self, strongSelf.traceVisibility() {
+                        if let strongSelf = self, strongSelf.traceVisibility(), !GuGramSettings.shared.isBypassCopyProtectionEnabled {
                             if strongSelf.canReadHistoryValue {
                                 let _ = strongSelf.context.engine.messages.addSecretChatMessageScreenshot(peerId: peerId).startStandalone()
                             }

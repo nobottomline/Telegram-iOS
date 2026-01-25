@@ -33,7 +33,8 @@ open class TransformImageNode: ASDisplayNode {
         didSet {
             if self.captureProtected != oldValue {
                 if self.isNodeLoaded {
-                    setLayerDisableScreenshots(self.layer, self.captureProtected)
+                    let bypass = UserDefaults.standard.bool(forKey: "GuGram_BypassCopyProtection")
+                    setLayerDisableScreenshots(self.layer, bypass ? false : self.captureProtected)
                 }
             }
         }
@@ -58,7 +59,8 @@ open class TransformImageNode: ASDisplayNode {
             self.view.accessibilityIgnoresInvertColors = true
         }
         if self.captureProtected {
-            setLayerDisableScreenshots(self.layer, self.captureProtected)
+            let bypass = UserDefaults.standard.bool(forKey: "GuGram_BypassCopyProtection")
+            setLayerDisableScreenshots(self.layer, bypass ? false : self.captureProtected)
         }
     }
     
@@ -290,7 +292,8 @@ open class TransformImageView: UIView {
     public var captureProtected: Bool = false {
         didSet {
             if self.captureProtected != oldValue {
-                setLayerDisableScreenshots(self.layer, self.captureProtected)
+                let bypass = UserDefaults.standard.bool(forKey: "GuGram_BypassCopyProtection")
+                setLayerDisableScreenshots(self.layer, bypass ? false : self.captureProtected)
             }
         }
     }
@@ -353,7 +356,8 @@ open class TransformImageView: UIView {
                     } else if strongSelf.contentAnimations.contains(.subsequentUpdates) {
                         let tempLayer = CALayer()
                         if strongSelf.captureProtected {
-                            setLayerDisableScreenshots(tempLayer, strongSelf.captureProtected)
+                            let bypass = UserDefaults.standard.bool(forKey: "GuGram_BypassCopyProtection")
+                            setLayerDisableScreenshots(tempLayer, bypass ? false : strongSelf.captureProtected)
                         }
                         tempLayer.frame = strongSelf.bounds
                         tempLayer.contentsGravity = strongSelf.layer.contentsGravity

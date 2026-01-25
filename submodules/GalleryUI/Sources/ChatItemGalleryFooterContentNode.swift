@@ -855,12 +855,12 @@ final class ChatItemGalleryFooterContentNode: GalleryFooterContentNode, ASScroll
         self.currentMessage = message
         
         var displayInfo = displayInfo
-        if Namespaces.Message.allNonRegular.contains(message.id.namespace) || message.timestamp == 0 {
+        if (Namespaces.Message.allNonRegular.contains(message.id.namespace) || message.timestamp == 0) && !UserDefaults.standard.bool(forKey: "GuGram_BypassCopyProtection") {
             displayInfo = false
         }
         var canFullscreen = false
         var canDelete: Bool
-        var canShare = !message.containsSecretMedia && !Namespaces.Message.allNonRegular.contains(message.id.namespace) && message.adAttribute == nil
+        var canShare = (!message.containsSecretMedia && !Namespaces.Message.allNonRegular.contains(message.id.namespace) && message.adAttribute == nil) || UserDefaults.standard.bool(forKey: "GuGram_BypassCopyProtection")
                 
         var canEdit = false
         var isImage = false

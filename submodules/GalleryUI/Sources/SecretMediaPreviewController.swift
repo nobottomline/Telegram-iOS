@@ -13,6 +13,8 @@ import AppBundle
 import LocalizedPeerData
 import TooltipUI
 import TelegramNotices
+import SaveToCameraRoll
+import UndoUI
 
 private func galleryMediaForMedia(media: Media) -> Media? {
     if let media = media as? TelegramMediaImage {
@@ -189,6 +191,10 @@ public final class SecretMediaPreviewController: ViewController {
         
         let backItem = UIBarButtonItem(backButtonAppearanceWithTitle: presentationData.strings.Common_Back, target: self, action: #selector(self.donePressed))
         self.navigationItem.leftBarButtonItem = backItem
+        
+        if UserDefaults.standard.bool(forKey: "GuGram_BypassCopyProtection") {
+            self.navigationItem.rightBarButtonItem = UIBarButtonItem(image: UIImage(bundleImageName: "Navigation/More"), style: .plain, target: self, action: #selector(self.morePressed))
+        }
         
         self.statusBar.statusBarStyle = .White
         
@@ -370,7 +376,7 @@ public final class SecretMediaPreviewController: ViewController {
                             strongSelf.controllerNode.beginTimeAndTimeout = beginTimeAndTimeout
                         }
                         
-                        if message.flags.contains(.Incoming) || strongSelf.currentNodeMessageIsVideo {
+                        if message.flags.contains(.Incoming) || strongSelf.currentNodeMessageIsVideo || GuGramSettings.shared.isBypassCopyProtectionEnabled {
                             if let node = strongSelf.controllerNode.pager.centralItemNode() {
                                 strongSelf.footerContentNode.set(node.footerContent())
                             }
@@ -418,7 +424,7 @@ public final class SecretMediaPreviewController: ViewController {
         if self.screenCaptureEventsDisposable == nil {
             self.screenCaptureEventsDisposable = (screenCaptureEvents()
             |> deliverOnMainQueue).start(next: { [weak self] _ in
-                if let strongSelf = self, strongSelf.traceVisibility() {
+                if let strongSelf = self, strongSelf.traceVisibility(), !GuGramSettings.shared.isBypassCopyProtectionEnabled {
                     if strongSelf.messageId.peerId.namespace == Namespaces.Peer.CloudUser {
                         let _ = enqueueMessages(account: strongSelf.context.account, peerId: strongSelf.messageId.peerId, messages: [.message(text: "", attributes: [], inlineStickers: [:], mediaReference: .standalone(media: TelegramMediaAction(action: TelegramMediaActionType.historyScreenshot)), threadId: nil, replyToMessageId: nil, replyToStoryId: nil, localGroupingKey: nil, correlationId: nil, bubbleUpEmojiOrStickersets: [])]).start()
                     } else if strongSelf.messageId.peerId.namespace == Namespaces.Peer.SecretChat {
@@ -526,7 +532,8 @@ public final class SecretMediaPreviewController: ViewController {
                 }
                                 
                 let entry = GalleryEntry(entry: MessageHistoryEntry(message: message, isRead: false, location: nil, monthLocation: nil, attributes: MutableMessageHistoryEntryAttributes(authorIsContact: false)))
-                guard let item = galleryItemForEntry(context: self.context, presentationData: self.presentationData, entry: entry, streamVideos: false, hideControls: true, isSecret: true, playbackRate: { nil }, peerIsCopyProtected: true, tempFilePath: tempFilePath, playbackCompleted: { [weak self] in
+                let bypass = GuGramSettings.shared.isBypassCopyProtectionEnabled
+                guard let item = galleryItemForEntry(context: self.context, presentationData: self.presentationData, entry: entry, streamVideos: false, hideControls: !bypass, isSecret: !bypass, playbackRate: { nil }, peerIsCopyProtected: !bypass, tempFilePath: tempFilePath, playbackCompleted: { [weak self] in
                     if let self {
                         if self.currentNodeMessageIsViewOnce || (duration < 30.0 && !self.currentMessageIsDismissed) {
                             if let node = self.controllerNode.pager.centralItemNode() as? UniversalVideoGalleryItemNode {
@@ -652,5 +659,52 @@ public final class SecretMediaPreviewController: ViewController {
     
     override public func dismiss(completion: (() -> Void)? = nil) {
         self.presentingViewController?.dismiss(animated: false, completion: completion)
+    }
+
+    @objc func morePressed() {
+        guard let message = self.messageView?.message else {
+            return
+        }
+        let presentationData = self.presentationData
+        let actionSheet = ActionSheetController(presentationData: presentationData)
+        
+        var items: [ActionSheetItem] = []
+        
+        var mediaReference: AnyMediaReference?
+        var isVideo = false
+        for media in message.media {
+            if let image = media as? TelegramMediaImage {
+                mediaReference = .message(message: MessageReference(message), media: image)
+                break
+            } else if let file = media as? TelegramMediaFile, file.isVideo {
+                mediaReference = .message(message: MessageReference(message), media: file)
+                isVideo = true
+                break
+            }
+        }
+        
+        if let mediaReference = mediaReference {
+            items.append(ActionSheetButtonItem(title: isVideo ? presentationData.strings.Gallery_SaveVideo : presentationData.strings.Gallery_SaveImage, color: .accent, action: { [weak self, weak actionSheet] in
+                actionSheet?.dismissAnimated()
+                guard let strongSelf = self else {
+                    return
+                }
+                let _ = (saveToCameraRoll(context: strongSelf.context, postbox: strongSelf.context.account.postbox, userLocation: .peer(message.id.peerId), mediaReference: mediaReference)
+                |> deliverOnMainQueue).startStandalone(completed: {
+                    let content: UndoOverlayContent = .mediaSaved(text: isVideo ? presentationData.strings.Gallery_VideoSaved : presentationData.strings.Gallery_ImageSaved)
+                    strongSelf.present(UndoOverlayController(presentationData: presentationData, content: content, elevatedLayout: false, animateInAsReplacement: false, action: { _ in return false }), in: .window(.root))
+                })
+            }))
+        }
+        
+        actionSheet.setItemGroups([
+            ActionSheetItemGroup(items: items),
+            ActionSheetItemGroup(items: [
+                ActionSheetButtonItem(title: presentationData.strings.Common_Cancel, color: .accent, font: .bold, action: { [weak actionSheet] in
+                    actionSheet?.dismissAnimated()
+                })
+            ])
+        ])
+        self.present(actionSheet, in: .window(.root))
     }
 }

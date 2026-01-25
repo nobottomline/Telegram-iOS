@@ -2113,25 +2113,45 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
                 }
                 var actions: [ContextMenuAction] = []
                 if copyPhone, let phone = user.phone, !phone.isEmpty {
-                    actions.append(ContextMenuAction(content: .text(title: strongSelf.presentationData.strings.Settings_CopyPhoneNumber, accessibilityLabel: strongSelf.presentationData.strings.Settings_CopyPhoneNumber), action: { [weak self] in
-                        if let strongSelf = self {
-                            UIPasteboard.general.string = formatPhoneNumber(context: strongSelf.context, number: phone)
-                            
-                            let presentationData = strongSelf.context.sharedContext.currentPresentationData.with { $0 }
-                            strongSelf.controller?.present(UndoOverlayController(presentationData: presentationData, content: .copy(text: presentationData.strings.Conversation_PhoneCopied), elevatedLayout: false, animateInAsReplacement: false, action: { _ in return false }), in: .current)
-                        }
-                    }))
+                    let isCustom = user.id == strongSelf.context.account.peerId && GuGramSettings.shared.isCustomPhoneNumberEnabled
+                    let isHidden = user.id == strongSelf.context.account.peerId && GuGramSettings.shared.isHidePhoneNumberEnabled
+                    
+                    if isHidden && !isCustom {
+                    } else {
+                        actions.append(ContextMenuAction(content: .text(title: strongSelf.presentationData.strings.Settings_CopyPhoneNumber, accessibilityLabel: strongSelf.presentationData.strings.Settings_CopyPhoneNumber), action: { [weak self] in
+                            if let strongSelf = self {
+                                if isCustom {
+                                    UIPasteboard.general.string = GuGramSettings.shared.customPhoneNumber
+                                } else {
+                                    UIPasteboard.general.string = formatPhoneNumber(context: strongSelf.context, number: phone)
+                                }
+                                
+                                let presentationData = strongSelf.context.sharedContext.currentPresentationData.with { $0 }
+                                strongSelf.controller?.present(UndoOverlayController(presentationData: presentationData, content: .copy(text: presentationData.strings.Conversation_PhoneCopied), elevatedLayout: false, animateInAsReplacement: false, action: { _ in return false }), in: .current)
+                            }
+                        }))
+                    }
                 }
                 
                 if copyUsername, let username = user.addressName, !username.isEmpty {
-                    actions.append(ContextMenuAction(content: .text(title: strongSelf.presentationData.strings.Settings_CopyUsername, accessibilityLabel: strongSelf.presentationData.strings.Settings_CopyUsername), action: { [weak self] in
-                        UIPasteboard.general.string = "@\(username)"
-                        
-                        if let strongSelf = self {
-                            let presentationData = strongSelf.context.sharedContext.currentPresentationData.with { $0 }
-                            strongSelf.controller?.present(UndoOverlayController(presentationData: presentationData, content: .copy(text: presentationData.strings.Conversation_UsernameCopied), elevatedLayout: false, animateInAsReplacement: false, action: { _ in return false }), in: .current)
-                        }
-                    }))
+                    let isCustom = user.id == strongSelf.context.account.peerId && GuGramSettings.shared.isCustomUsernameEnabled
+                    let isHidden = user.id == strongSelf.context.account.peerId && GuGramSettings.shared.isHideUsernameEnabled
+                    
+                    if isHidden && !isCustom {
+                    } else {
+                        actions.append(ContextMenuAction(content: .text(title: strongSelf.presentationData.strings.Settings_CopyUsername, accessibilityLabel: strongSelf.presentationData.strings.Settings_CopyUsername), action: { [weak self] in
+                            if let strongSelf = self {
+                                if isCustom {
+                                    UIPasteboard.general.string = "@\(GuGramSettings.shared.customUsername)"
+                                } else {
+                                    UIPasteboard.general.string = "@\(username)"
+                                }
+                                
+                                let presentationData = strongSelf.context.sharedContext.currentPresentationData.with { $0 }
+                                strongSelf.controller?.present(UndoOverlayController(presentationData: presentationData, content: .copy(text: presentationData.strings.Conversation_UsernameCopied), elevatedLayout: false, animateInAsReplacement: false, action: { _ in return false }), in: .current)
+                            }
+                        }))
+                    }
                 }
                 
                 let contextMenuController = makeContextMenuController(actions: actions)
@@ -2467,7 +2487,7 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
             queue: Queue.mainQueue(),
             screenData,
             self.forceIsContactPromise.get(),
-            GuGramSettings.shared.localPremiumSignal
+            GuGramSettings.shared.settingsStateSignal
         ).startStrict(next: { [weak self] data, forceIsContact, _ in
             guard let strongSelf = self else {
                 return
@@ -2479,6 +2499,9 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
             }
             strongSelf.updateData(data)
             strongSelf.cachedDataPromise.set(.single(data.cachedData))
+            if let (layout, navigationHeight) = strongSelf.validLayout {
+                strongSelf.containerLayoutUpdated(layout: layout, navigationHeight: navigationHeight, transition: .animated(duration: 0.2, curve: .easeInOut))
+            }
         })
         
         if let _ = nearbyPeerDistance {

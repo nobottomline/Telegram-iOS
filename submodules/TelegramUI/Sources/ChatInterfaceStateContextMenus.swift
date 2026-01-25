@@ -1267,6 +1267,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
         let message = messages[0]
         var isExpired = false
         var isImage = false
+        var isVideo = false
         for media in message.media {
             if let _ = media as? TelegramMediaExpiredContent {
                 isExpired = true
@@ -1274,14 +1275,18 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             if media is TelegramMediaImage {
                 isImage = true
             }
+            if let file = media as? TelegramMediaFile, file.isVideo {
+                isVideo = true
+            }
         }
         
-        let isCopyProtected = false // GuGram: Always allow copy/save
-        /*
-        let isCopyProtected = chatPresentationInterfaceState.copyProtectionEnabled || message.isCopyProtected()
-        */
+        var isCopyProtected = chatPresentationInterfaceState.copyProtectionEnabled || message.isCopyProtected()
+        if UserDefaults.standard.bool(forKey: "GuGram_BypassCopyProtection") {
+            isCopyProtected = false
+        }
         let canShowEditHistory = GuGramSettings.shared.isEditedMessagesEnabled && messages.count == 1 && !message.gugramAttribute.editHistory.isEmpty
-        if !messageText.isEmpty || (resourceAvailable && isImage) || diceEmoji != nil {
+        let bypass = UserDefaults.standard.bool(forKey: "GuGram_BypassCopyProtection")
+        if !messageText.isEmpty || ((resourceAvailable || bypass) && (isImage || isVideo)) || diceEmoji != nil {
             if !isExpired {
                 if !isPoll {
                     if !isCopyProtected {
@@ -1413,15 +1418,16 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             })))
         }
         
-        if resourceAvailable, !message.containsSecretMedia && !isCopyProtected {
+        let bypassSecretMediaCheck = UserDefaults.standard.bool(forKey: "GuGram_BypassCopyProtection")
+        if (bypassSecretMediaCheck || resourceAvailable), (bypassSecretMediaCheck || !message.containsSecretMedia) && !isCopyProtected {
             var mediaReference: AnyMediaReference?
             var isVideo = false
             for media in message.media {
                 if let image = media as? TelegramMediaImage, let _ = largestImageRepresentation(image.representations) {
-                    mediaReference = ImageMediaReference.standalone(media: image).abstract
+                    mediaReference = ImageMediaReference.message(message: MessageReference(message), media: image).abstract
                     break
                 } else if let file = media as? TelegramMediaFile, file.isVideo {
-                    mediaReference = FileMediaReference.standalone(media: file).abstract
+                    mediaReference = FileMediaReference.message(message: MessageReference(message), media: file).abstract
                     isVideo = true
                     break
                 }
@@ -1460,7 +1466,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
         if !isCopyProtected {
             for media in message.media {
                 if let file = media as? TelegramMediaFile {
-                    if file.isMusic {
+                    if file.isMusic || GuGramSettings.shared.isBypassCopyProtectionEnabled {
                         actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_SaveToFiles, icon: { theme in
                             return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Save"), color: theme.actionSheet.primaryTextColor)
                         }, action: { _, f in
@@ -2383,7 +2389,7 @@ func chatAvailableMessageActionsImpl(engine: TelegramEngine, accountPeerId: Peer
                     }
                 }
                 
-                if message.isCopyProtected() || message.containsSecretMedia {
+                if message.isCopyProtected() || (message.containsSecretMedia && !GuGramSettings.shared.isBypassCopyProtectionEnabled) {
                     isCopyProtected = true
                 }
                 for media in message.media {
@@ -2488,8 +2494,9 @@ func chatAvailableMessageActionsImpl(engine: TelegramEngine, accountPeerId: Peer
                                 banPeer = nil
                             }
                         }
-                        if !message.containsSecretMedia && !isAction && !isShareProtected {
-                            if message.id.peerId.namespace != Namespaces.Peer.SecretChat && !message.isCopyProtected() {
+                        let bypass = GuGramSettings.shared.isBypassCopyProtectionEnabled
+                        if (bypass || !message.containsSecretMedia) && !isAction && !isShareProtected {
+                            if (bypass || message.id.peerId.namespace != Namespaces.Peer.SecretChat) && !message.isCopyProtected() {
                                 if !(message.flags.isSending || message.flags.contains(.Failed)) {
                                     optionsMap[id]!.insert(.forward)
                                 }
@@ -2504,7 +2511,8 @@ func chatAvailableMessageActionsImpl(engine: TelegramEngine, accountPeerId: Peer
                             }
                         }
                     } else if let group = peer as? TelegramGroup {
-                        if message.id.peerId.namespace != Namespaces.Peer.SecretChat && !message.containsSecretMedia {
+                        let bypass = GuGramSettings.shared.isBypassCopyProtectionEnabled
+                        if (bypass || message.id.peerId.namespace != Namespaces.Peer.SecretChat) && (bypass || !message.containsSecretMedia) {
                             if !isAction && !message.isCopyProtected() && !isShareProtected {
                                 if !(message.flags.isSending || message.flags.contains(.Failed)) {
                                     optionsMap[id]!.insert(.forward)
@@ -2524,7 +2532,8 @@ func chatAvailableMessageActionsImpl(engine: TelegramEngine, accountPeerId: Peer
                             optionsMap[id]!.insert(.report)
                         }
                     } else if let user = peer as? TelegramUser {
-                        if !isScheduled && message.id.peerId.namespace != Namespaces.Peer.SecretChat && !message.containsSecretMedia && !isAction && !message.id.peerId.isReplies && !message.isCopyProtected() && !isShareProtected {
+                        let bypass = GuGramSettings.shared.isBypassCopyProtectionEnabled
+                        if !isScheduled && (bypass || message.id.peerId.namespace != Namespaces.Peer.SecretChat) && (bypass || !message.containsSecretMedia) && !isAction && !message.id.peerId.isReplies && !message.isCopyProtected() && !isShareProtected {
                             if !(message.flags.isSending || message.flags.contains(.Failed)) {
                                 optionsMap[id]!.insert(.forward)
                             }

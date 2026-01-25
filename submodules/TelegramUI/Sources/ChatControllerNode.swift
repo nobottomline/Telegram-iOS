@@ -476,7 +476,11 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         
         self.floatingTopicsPanelContainer = ChatControllerTitlePanelNodeContainer()
         
-        setLayerDisableScreenshots(self.titleAccessoryPanelContainer.layer, chatLocation.peerId?.namespace == Namespaces.Peer.SecretChat)
+        var isSecretTitlePanel = chatLocation.peerId?.namespace == Namespaces.Peer.SecretChat
+        if GuGramSettings.shared.isBypassCopyProtectionEnabled {
+            isSecretTitlePanel = false
+        }
+        setLayerDisableScreenshots(self.titleAccessoryPanelContainer.layer, isSecretTitlePanel)
         
         self.inputContextPanelContainer = ChatControllerTitlePanelNodeContainer()
         self.inputContextOverTextPanelContainer = ChatControllerTitlePanelNodeContainer()
@@ -736,7 +740,11 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             return getMessageTransitionNode?()
         })
 
-        self.historyNodeContainer = HistoryNodeContainer(isSecret: chatLocation.peerId?.namespace == Namespaces.Peer.SecretChat)
+        var isSecretHistory = chatLocation.peerId?.namespace == Namespaces.Peer.SecretChat
+        if GuGramSettings.shared.isBypassCopyProtectionEnabled {
+            isSecretHistory = false
+        }
+        self.historyNodeContainer = HistoryNodeContainer(isSecret: isSecretHistory)
         
         self.historyNodeContainer.contentNode.addSubnode(self.historyNode)
 
@@ -1125,7 +1133,10 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             }
         }
         
-        let isSecret = self.chatPresentationInterfaceState.copyProtectionEnabled || self.chatLocation.peerId?.namespace == Namespaces.Peer.SecretChat || self.chatLocation.peerId?.isVerificationCodes == true
+        var isSecret = self.chatPresentationInterfaceState.copyProtectionEnabled || self.chatLocation.peerId?.namespace == Namespaces.Peer.SecretChat || self.chatLocation.peerId?.isVerificationCodes == true
+        if GuGramSettings.shared.isBypassCopyProtectionEnabled {
+            isSecret = false
+        }
         if self.historyNodeContainer.isSecret != isSecret {
             self.historyNodeContainer.isSecret = isSecret
             setLayerDisableScreenshots(self.titleAccessoryPanelContainer.layer, isSecret)

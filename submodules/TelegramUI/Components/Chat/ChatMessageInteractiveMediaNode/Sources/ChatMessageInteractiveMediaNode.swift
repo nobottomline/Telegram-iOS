@@ -2253,7 +2253,7 @@ public final class ChatMessageInteractiveMediaNode: ASDisplayNode, GalleryItemTr
                             }
                             
                             if let updateImageSignal = updateImageSignal {
-                                strongSelf.imageNode.captureProtected = message.isCopyProtected() || isExtendedMedia
+                                strongSelf.imageNode.captureProtected = (message.isCopyProtected() || isExtendedMedia) && !GuGramSettings.shared.isBypassCopyProtectionEnabled
                                 strongSelf.imageNode.setSignal(updateImageSignal(synchronousLoads, false), attemptSynchronously: synchronousLoads)
 
                                 var imageDimensions: CGSize?
@@ -3238,7 +3238,7 @@ public final class ChatMessageInteractiveMediaNode: ASDisplayNode, GalleryItemTr
             }
             
             var view: UIView?
-            if let strongSelf = self, strongSelf.imageNode.captureProtected {
+            if let strongSelf = self, strongSelf.imageNode.captureProtected && !GuGramSettings.shared.isBypassCopyProtectionEnabled {
                 let imageView = UIImageView()
                 imageView.contentMode = .scaleToFill
                 imageView.image = strongSelf.imageNode.image

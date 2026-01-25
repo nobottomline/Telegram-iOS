@@ -402,7 +402,8 @@ private final class NativeVideoContentNode: ASDisplayNode, UniversalVideoContent
         
         let selectedFile = fileReference.media
         
-        self.playerNode = MediaPlayerNode(backgroundThread: false, captureProtected: captureProtected)
+        let bypass = UserDefaults.standard.bool(forKey: "GuGram_BypassCopyProtection")
+        self.playerNode = MediaPlayerNode(backgroundThread: false, captureProtected: bypass ? false : captureProtected)
         
         self.dimensions = fileReference.media.dimensions?.cgSize
         if let dimensions = self.dimensions {
@@ -429,7 +430,8 @@ private final class NativeVideoContentNode: ASDisplayNode, UniversalVideoContent
         
         if displayImage {
             if captureProtected {
-                setLayerDisableScreenshots(self.imageNode.layer, captureProtected)
+                let bypass = UserDefaults.standard.bool(forKey: "GuGram_BypassCopyProtection")
+                setLayerDisableScreenshots(self.imageNode.layer, bypass ? false : captureProtected)
             }
             
             self.imageNode.setSignal(internalMediaGridMessageVideo(postbox: postbox, userLocation: userLocation, videoReference: fileReference, previewSourceFileReference: previewSourceFileReference, imageReference: imageReference, onlyFullSize: onlyFullSizeThumbnail, useLargeThumbnail: useLargeThumbnail, autoFetchFullSizeThumbnail: autoFetchFullSizeThumbnail || fileReference.media.isInstantVideo) |> map { [weak self] getSize, getData in

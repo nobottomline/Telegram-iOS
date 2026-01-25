@@ -204,41 +204,63 @@ public func normalizeEntries(_ entries: [AvatarGalleryEntry]) -> [AvatarGalleryE
 }
 
 public func initialAvatarGalleryEntries(account: Account, engine: TelegramEngine, peer: EnginePeer) -> Signal<[AvatarGalleryEntry]?, NoError> {
+    let guGramSignal = combineLatest(
+        GuGramSettings.shared.isCustomAvatarEnabledSignal,
+        GuGramSettings.shared.customAvatarPathSignal,
+        GuGramSettings.shared.hideAvatarSignal
+    )
+    
     var initialEntries: [AvatarGalleryEntry] = []
     if !peer.profileImageRepresentations.isEmpty, let peerReference = PeerReference(peer._asPeer()) {
         initialEntries.append(.topImage(peer.profileImageRepresentations.map({ ImageRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatar(peer: peerReference, resource: $0.resource)) }), [], peer, nil, nil, nil))
     }
     
-    guard let peerReference = PeerReference(peer._asPeer()) else {
-        return .single(initialEntries)
-    }
-    switch peer {
-    case .channel, .legacyGroup:
-        break
-    default:
-        return .single(initialEntries)
+    let peerSignal: Signal<[AvatarGalleryEntry]?, NoError>
+    if let peerReference = PeerReference(peer._asPeer()) {
+        switch peer {
+        case .channel, .legacyGroup:
+            peerSignal = engine.data.get(TelegramEngine.EngineData.Item.Peer.Photo(id: peer.id))
+            |> map { peerPhoto -> [AvatarGalleryEntry]? in
+                var initialPhoto: TelegramMediaImage?
+                if case let .known(value) = peerPhoto {
+                    initialPhoto = value
+                }
+                
+                if let photo = initialPhoto {
+                    var representations = photo.representations.map({ ImageRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatar(peer: peerReference, resource: $0.resource)) })
+                    if photo.immediateThumbnailData == nil, let firstEntry = initialEntries.first, let firstRepresentation = firstEntry.representations.first {
+                        representations.insert(firstRepresentation, at: 0)
+                    }
+                    return [.image(photo.imageId, photo.reference, representations, photo.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), peer, nil, nil, nil, photo.immediateThumbnailData, nil, false, photo.emojiMarkup)]
+                } else {
+                    if case .known = peerPhoto {
+                        return []
+                    } else {
+                        return nil
+                    }
+                }
+            }
+        default:
+            peerSignal = .single(initialEntries)
+        }
+    } else {
+        peerSignal = .single(initialEntries)
     }
     
-    return engine.data.get(TelegramEngine.EngineData.Item.Peer.Photo(id: peer.id))
-    |> map { peerPhoto in
-        var initialPhoto: TelegramMediaImage?
-        if case let .known(value) = peerPhoto {
-            initialPhoto = value
-        }
+    return combineLatest(peerSignal, guGramSignal)
+    |> map { entries, guGramSettings -> [AvatarGalleryEntry]? in
+        var entries = entries ?? initialEntries
+        let (isCustomAvatarEnabled, customAvatarPath, isHideAvatar) = guGramSettings
         
-        if let photo = initialPhoto {
-            var representations = photo.representations.map({ ImageRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatar(peer: peerReference, resource: $0.resource)) })
-            if photo.immediateThumbnailData == nil, let firstEntry = initialEntries.first, let firstRepresentation = firstEntry.representations.first {
-                representations.insert(firstRepresentation, at: 0)
-            }
-            return [.image(photo.imageId, photo.reference, representations, photo.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), peer, nil, nil, nil, photo.immediateThumbnailData, nil, false, photo.emojiMarkup)]
-        } else {
-            if case .known = peerPhoto {
-                return []
-            } else {
-                return nil
+        if peer.id == account.peerId {
+            if isCustomAvatarEnabled, let path = customAvatarPath, let _ = UIImage(contentsOfFile: path) {
+                let customEntry = AvatarGalleryEntry(representation: TelegramMediaImageRepresentation(dimensions: PixelDimensions(width: 1280, height: 1280), resource: LocalFileReferenceMediaResource(localFilePath: path, randomId: GuGramSettings.shared.customAvatarVersion), progressiveSizes: [], immediateThumbnailData: nil, hasVideo: false, isPersonal: false), peer: peer)
+                entries = [customEntry]
+            } else if isHideAvatar {
+                entries = []
             }
         }
+        return entries
     }
 }
 

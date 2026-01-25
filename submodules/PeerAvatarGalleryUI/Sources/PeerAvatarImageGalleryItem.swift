@@ -101,7 +101,7 @@ class PeerAvatarImageGalleryItem: GalleryItem {
     }
     
     func thumbnailItem() -> (Int64, GalleryThumbnailItem)? {
-        let content: [ImageRepresentationWithReference]
+        var content: [ImageRepresentationWithReference]
         switch self.entry {
             case let .topImage(representations, _, _, _, _, _):
                 content = representations
@@ -246,10 +246,11 @@ final class PeerAvatarImageGalleryItemNode: ZoomableContentGalleryItemNode {
                         
             self.footerContentNode.setEntry(entry, content: footerContent)
             
-            if let largestSize = largestImageRepresentation(entry.representations.map({ $0.representation })) {
+            let representations = entry.representations
+            
+            if let largestSize = largestImageRepresentation(representations.map({ $0.representation })) {
                 let displaySize = largestSize.dimensions.cgSize.fitted(CGSize(width: 1280.0, height: 1280.0)).dividedByScreenScale().integralFloor
                 self.imageNode.asyncLayout()(TransformImageArguments(corners: ImageCorners(), imageSize: displaySize, boundingSize: displaySize, intrinsicInsets: UIEdgeInsets()))()
-                let representations = entry.representations
                 if representations.last != previousRepresentations?.last {
                     self.imageNode.setSignal(chatAvatarGalleryPhoto(account: self.context.account, representations: representations, immediateThumbnailData: entry.immediateThumbnailData, attemptSynchronously: synchronous), attemptSynchronously: synchronous, dispatchOnDisplayLink: false)
                     if entry.videoRepresentations.isEmpty {

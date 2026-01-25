@@ -123,53 +123,67 @@ func infoItems(data: PeerInfoScreenData?, context: AccountContext, presentationD
         }
         
         if let phone = user.phone {
-            let formattedPhone = formatPhoneNumber(context: context, number: phone)
-            let label: String
-            if formattedPhone.hasPrefix("+888 ") {
-                label = presentationData.strings.UserInfo_AnonymousNumberLabel
+            let isCustom = user.id == context.account.peerId && GuGramSettings.shared.isCustomPhoneNumberEnabled
+            let isHidden = user.id == context.account.peerId && GuGramSettings.shared.isHidePhoneNumberEnabled
+            
+            if isHidden && !isCustom {
             } else {
-                label = presentationData.strings.ContactInfo_PhoneLabelMobile
+                let displayPhone: String
+                if isCustom {
+                    displayPhone = GuGramSettings.shared.customPhoneNumber
+                } else {
+                    displayPhone = formatPhoneNumber(context: context, number: phone)
+                }
+                let label: String
+                if displayPhone.hasPrefix("+888") {
+                    label = presentationData.strings.UserInfo_GenericPhoneLabel
+                } else {
+                    label = presentationData.strings.ContactInfo_PhoneLabelMobile
+                }
+                items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemPhoneNumber, label: label, text: displayPhone, textColor: .accent, action: { node, progress in
+                    interaction.openPhone(phone, node, nil, progress)
+                }, contextAction: { node, gesture, _ in
+                    interaction.openPhone(phone, node, gesture, nil)
+                }, requestLayout: { animated in
+                    interaction.requestLayout(animated)
+                }))
             }
-            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemPhoneNumber, label: label, text: formattedPhone, textColor: .accent, action: { node, progress in
-                interaction.openPhone(phone, node, nil, progress)
-            }, longTapAction: nil, contextAction: { node, gesture, _ in
-                interaction.openPhone(phone, node, gesture, nil)
-            }, requestLayout: { animated in
-                interaction.requestLayout(animated)
-            }))
         }
         if let mainUsername = user.addressName {
-            var additionalUsernames: String?
-            let usernames = user.usernames.filter { $0.isActive && $0.username != mainUsername }
-            if !usernames.isEmpty {
-                additionalUsernames = presentationData.strings.Profile_AdditionalUsernames(String(usernames.map { "@\($0.username)" }.joined(separator: ", "))).string
+            let displayUsername: String
+            let isCustom = user.id == context.account.peerId && GuGramSettings.shared.isCustomUsernameEnabled
+            if isCustom {
+                displayUsername = GuGramSettings.shared.customUsername
+            } else {
+                displayUsername = mainUsername
             }
-            
-            items[currentPeerInfoSection]!.append(
-                PeerInfoScreenLabeledValueItem(
-                    id: ItemUsername,
-                    label: presentationData.strings.Profile_Username,
-                    text: "@\(mainUsername)",
-                    additionalText: additionalUsernames,
-                    textColor: .accent,
-                    icon: .qrCode,
-                    action: { _, progress in
-                        interaction.openUsername(mainUsername, true, progress)
-                    }, linkItemAction: { type, item, _, _, progress in
-                        if case .tap = type {
-                            if case let .mention(username) = item {
-                                interaction.openUsername(String(username[username.index(username.startIndex, offsetBy: 1)...]), false, progress)
-                            }
+
+            if user.id == context.account.peerId && GuGramSettings.shared.isHideUsernameEnabled && !isCustom {
+            } else {
+                var additionalUsernames: String?
+                let usernames = user.usernames.filter { $0.isActive && $0.username != mainUsername }
+                if !usernames.isEmpty {
+                    additionalUsernames = presentationData.strings.Profile_AdditionalUsernames(String(usernames.map { "@\($0.username)" }.joined(separator: ", "))).string
+                }
+                
+                items[currentPeerInfoSection]!.append(
+                    PeerInfoScreenLabeledValueItem(
+                        id: ItemUsername,
+                        label: presentationData.strings.Profile_Username,
+                        text: "@\(displayUsername)",
+                        additionalText: additionalUsernames,
+                        textColor: .accent,
+                        icon: .qrCode,
+                        action: { _, progress in
+                            interaction.openUsername(mainUsername, true, progress)
+                        }, contextAction: { node, gesture, _ in
+                            interaction.openUsernameContextMenu(node, gesture)
+                        }, requestLayout: { animated in
+                            interaction.requestLayout(animated)
                         }
-                    }, iconAction: {
-                        interaction.openQrCode()
-                    }, contextAction: { node, gesture, _ in
-                        interaction.openUsernameContextMenu(node, gesture)
-                    }, requestLayout: { animated in
-                        interaction.requestLayout(animated)
-                    }
+                    )
                 )
-            )
+            }
         }
         
         if let cachedData = data.cachedData as? CachedUserData {

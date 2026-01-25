@@ -198,7 +198,9 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     
     var emojiStatusPackDisposable = MetaDisposable()
     var emojiStatusFileAndPackTitle = Promise<(TelegramMediaFile, LoadedStickerPack)?>()
-    
+    private let guGramAvatarDisposable = MetaDisposable()
+    private var hasGuGramAvatarSubscription: Bool = false
+
     var customNavigationContentNode: PeerInfoPanelNodeNavigationContentNode?
     private var appliedCustomNavigationContentNode: PeerInfoPanelNodeNavigationContentNode?
     
@@ -383,6 +385,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     
     deinit {
         self.emojiStatusPackDisposable.dispose()
+        self.guGramAvatarDisposable.dispose()
     }
     
     override func didLoad() {
@@ -493,7 +496,69 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     private var currentStatusIcon: CredibilityIcon?
     
     private var currentPanelStatusData: PeerInfoStatusData?
+    
+    private struct PeerParams {
+        let width: CGFloat
+        let containerHeight: CGFloat
+        let containerInset: CGFloat
+        let statusBarHeight: CGFloat
+        let navigationHeight: CGFloat
+        let isModalOverlay: Bool
+        let isMediaOnly: Bool
+        let contentOffset: CGFloat
+        let paneContainerY: CGFloat
+        let presentationData: PresentationData
+        let peer: Peer?
+        let cachedData: CachedPeerData?
+        let threadData: MessageHistoryThreadData?
+        let peerNotificationSettings: TelegramPeerNotificationSettings?
+        let threadNotificationSettings: TelegramPeerNotificationSettings?
+        let globalNotificationSettings: EngineGlobalNotificationSettings?
+        let statusData: PeerInfoStatusData?
+        let panelStatusData: (PeerInfoStatusData?, PeerInfoStatusData?, CGFloat?)
+        let isSecretChat: Bool
+        let isContact: Bool
+        let isSettings: Bool
+        let state: PeerInfoState
+        let profileGiftsContext: ProfileGiftsContext?
+        let screenData: PeerInfoScreenData?
+        let isSearching: Bool
+        let metrics: LayoutMetrics
+        let deviceMetrics: DeviceMetrics
+        let transition: ContainedViewLayoutTransition
+        let additive: Bool
+        let animateHeader: Bool
+    }
+    private var lastPeerParams: PeerParams?
+
     func update(width: CGFloat, containerHeight: CGFloat, containerInset: CGFloat, statusBarHeight: CGFloat, navigationHeight: CGFloat, isModalOverlay: Bool, isMediaOnly: Bool, contentOffset: CGFloat, paneContainerY: CGFloat, presentationData: PresentationData, peer: Peer?, cachedData: CachedPeerData?, threadData: MessageHistoryThreadData?, peerNotificationSettings: TelegramPeerNotificationSettings?, threadNotificationSettings: TelegramPeerNotificationSettings?, globalNotificationSettings: EngineGlobalNotificationSettings?, statusData: PeerInfoStatusData?, panelStatusData: (PeerInfoStatusData?, PeerInfoStatusData?, CGFloat?), isSecretChat: Bool, isContact: Bool, isSettings: Bool, state: PeerInfoState, profileGiftsContext: ProfileGiftsContext?, screenData: PeerInfoScreenData?, isSearching: Bool, metrics: LayoutMetrics, deviceMetrics: DeviceMetrics, transition: ContainedViewLayoutTransition, additive: Bool, animateHeader: Bool) -> CGFloat {
+        self.lastPeerParams = PeerParams(width: width, containerHeight: containerHeight, containerInset: containerInset, statusBarHeight: statusBarHeight, navigationHeight: navigationHeight, isModalOverlay: isModalOverlay, isMediaOnly: isMediaOnly, contentOffset: contentOffset, paneContainerY: paneContainerY, presentationData: presentationData, peer: peer, cachedData: cachedData, threadData: threadData, peerNotificationSettings: peerNotificationSettings, threadNotificationSettings: threadNotificationSettings, globalNotificationSettings: globalNotificationSettings, statusData: statusData, panelStatusData: panelStatusData, isSecretChat: isSecretChat, isContact: isContact, isSettings: isSettings, state: state, profileGiftsContext: profileGiftsContext, screenData: screenData, isSearching: isSearching, metrics: metrics, deviceMetrics: deviceMetrics, transition: transition, additive: additive, animateHeader: animateHeader)
+        
+        if let peer = peer, peer.id == self.context.account.peerId {
+            if !self.hasGuGramAvatarSubscription {
+                self.hasGuGramAvatarSubscription = true
+                var isFirstValue = true
+                self.guGramAvatarDisposable.set((combineLatest(
+                    GuGramSettings.shared.isCustomAvatarEnabledSignal,
+                    GuGramSettings.shared.customAvatarPathSignal,
+                    GuGramSettings.shared.hideAvatarSignal
+                )
+                |> deliverOnMainQueue).startStrict(next: { [weak self] (_, _, _) in
+                    if isFirstValue {
+                        isFirstValue = false
+                        return
+                    }
+                    guard let strongSelf = self, let params = strongSelf.lastPeerParams else {
+                        return
+                    }
+                    let _ = strongSelf.update(width: params.width, containerHeight: params.containerHeight, containerInset: params.containerInset, statusBarHeight: params.statusBarHeight, navigationHeight: params.navigationHeight, isModalOverlay: params.isModalOverlay, isMediaOnly: params.isMediaOnly, contentOffset: params.contentOffset, paneContainerY: params.paneContainerY, presentationData: params.presentationData, peer: params.peer, cachedData: params.cachedData, threadData: params.threadData, peerNotificationSettings: params.peerNotificationSettings, threadNotificationSettings: params.threadNotificationSettings, globalNotificationSettings: params.globalNotificationSettings, statusData: params.statusData, panelStatusData: params.panelStatusData, isSecretChat: params.isSecretChat, isContact: params.isContact, isSettings: params.isSettings, state: params.state, profileGiftsContext: params.profileGiftsContext, screenData: params.screenData, isSearching: params.isSearching, metrics: params.metrics, deviceMetrics: params.deviceMetrics, transition: .immediate, additive: params.additive, animateHeader: false)
+                }))
+            }
+        } else {
+            self.hasGuGramAvatarSubscription = false
+            self.guGramAvatarDisposable.set(nil)
+        }
+
         if self.appliedCustomNavigationContentNode !== self.customNavigationContentNode {
             if let previous = self.appliedCustomNavigationContentNode {
                 ComponentTransition(transition).setAlpha(view: previous.view, alpha: 0.0, completion: { [weak previous] _ in
@@ -1219,13 +1284,22 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             } else {
                 title = EnginePeer(peer).displayTitle(strings: presentationData.strings, displayOrder: presentationData.nameDisplayOrder)
             }
+            if peer.id == self.context.account.peerId && GuGramSettings.shared.isCustomNameEnabled {
+                title = GuGramSettings.shared.customName
+            }
             title = title.replacingOccurrences(of: "\u{1160}", with: "").replacingOccurrences(of: "\u{3164}", with: "")
             if title.replacingOccurrences(of: "\u{fe0e}", with: "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 title = "" //"\u{00A0}"
             }
             if title.isEmpty {
                 if let peer = peer as? TelegramUser, let phone = peer.phone {
-                    title = formatPhoneNumber(context: self.context, number: phone)
+                    if peer.id == self.context.account.peerId && GuGramSettings.shared.isCustomPhoneNumberEnabled {
+                        title = GuGramSettings.shared.customPhoneNumber
+                    } else if peer.id == self.context.account.peerId && GuGramSettings.shared.isHidePhoneNumberEnabled {
+                        title = ""
+                    } else {
+                        title = formatPhoneNumber(context: self.context, number: phone)
+                    }
                 } else if let addressName = peer.addressName {
                     title = "@\(addressName)"
                 } else {
@@ -1234,14 +1308,37 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
 
             titleStringText = title
-            titleAttributes = MultiScaleTextState.Attributes(font: Font.medium(28.0), color: .white)
-            smallTitleAttributes = MultiScaleTextState.Attributes(font: Font.medium(28.0), color: .white, shadowColor: titleShadowColor)
+            let isNameHidden = peer.id == self.context.account.peerId && GuGramSettings.shared.isHideNameEnabled
+            let titleColor: UIColor = isNameHidden ? .clear : .white
+            titleAttributes = MultiScaleTextState.Attributes(font: Font.medium(28.0), color: titleColor)
+            smallTitleAttributes = MultiScaleTextState.Attributes(font: Font.medium(28.0), color: titleColor, shadowColor: isNameHidden ? nil : titleShadowColor)
             
             if self.isSettings, let user = peer as? TelegramUser {
-                var subtitle = formatPhoneNumber(context: self.context, number: user.phone ?? "")
+                var subtitle: String
+                if user.id == self.context.account.peerId && GuGramSettings.shared.isCustomPhoneNumberEnabled {
+                    subtitle = GuGramSettings.shared.customPhoneNumber
+                } else if user.id == self.context.account.peerId && GuGramSettings.shared.isHidePhoneNumberEnabled {
+                    subtitle = ""
+                } else {
+                    subtitle = formatPhoneNumber(context: self.context, number: user.phone ?? "")
+                }
                 
                 if let mainUsername = user.addressName, !mainUsername.isEmpty {
-                    subtitle = "\(subtitle) • @\(mainUsername)"
+                    if user.id == self.context.account.peerId && GuGramSettings.shared.isCustomUsernameEnabled {
+                        let customUsername = GuGramSettings.shared.customUsername
+                        if subtitle.isEmpty {
+                            subtitle = "@\(customUsername)"
+                        } else {
+                            subtitle = "\(subtitle) • @\(customUsername)"
+                        }
+                    } else if user.id == self.context.account.peerId && GuGramSettings.shared.isHideUsernameEnabled {
+                    } else {
+                        if subtitle.isEmpty {
+                            subtitle = "@\(mainUsername)"
+                        } else {
+                            subtitle = "\(subtitle) • @\(mainUsername)"
+                        }
+                    }
                 }
                 subtitleStringText = subtitle
                 subtitleAttributes = MultiScaleTextState.Attributes(font: Font.regular(17.0), color: .white)
@@ -1484,6 +1581,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             avatarCenter = avatarFrame.center
         }
         
+        let isNameHiddenByGuGram = peer?.id == self.context.account.peerId && GuGramSettings.shared.isHideNameEnabled
+
         let titleSize = titleNodeLayout[TitleNodeStateRegular]!.size
         let titleExpandedSize = titleNodeLayout[TitleNodeStateExpanded]!.size
         let subtitleSize = subtitleNodeLayout[TitleNodeStateRegular]!.size
@@ -1575,8 +1674,11 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 collapsedTransitionOffset = -10.0 * navigationTransition.fraction
             }
             
+            let isNameHidden = peer?.id == self.context.account.peerId && GuGramSettings.shared.isHideNameEnabled
             transition.updateFrame(view: self.titleVerifiedIconView, frame: CGRect(origin: CGPoint(x: leftOffset + collapsedTransitionOffset, y: floor((titleSize.height - verifiedIconSize.height) / 2.0)), size: verifiedIconSize))
+            transition.updateAlpha(layer: self.titleVerifiedIconView.layer, alpha: isNameHidden ? 0.0 : 1.0)
             transition.updateFrame(view: self.titleExpandedVerifiedIconView, frame: CGRect(origin: CGPoint(x: leftExpandedOffset, y: floor((titleExpandedSize.height - titleExpandedVerifiedIconSize.height) / 2.0) + 1.0), size: titleExpandedVerifiedIconSize))
+            transition.updateAlpha(layer: self.titleExpandedVerifiedIconView.layer, alpha: isNameHidden ? 0.0 : 1.0)
             
             if case .verified = verifiedIcon {
                 nextIconX += 4.0 + verifiedIconSize.width
@@ -1681,12 +1783,20 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             realAreaExpansionFraction = effectiveAreaExpansionFraction
         }
         
+        let isAvatarHiddenByGuGram = peer?.id == self.context.account.peerId && GuGramSettings.shared.isHideAvatarEnabled
+        self.avatarListNode.isHidden = isAvatarHiddenByGuGram
+        self.editingContentNode.avatarNode.isHidden = isAvatarHiddenByGuGram
+        
         self.titleNode.update(stateFractions: [
             TitleNodeStateRegular: self.isAvatarExpanded ? 0.0 : 1.0,
             TitleNodeStateExpanded: self.isAvatarExpanded ? 1.0 : 0.0
         ], transition: transition)
         
-        transition.updateAlpha(node: self.titleNode, alpha: isSearching ? 0.0 : 1.0)
+        var titleAlpha: CGFloat = isSearching ? 0.0 : 1.0
+        if isNameHiddenByGuGram {
+            titleAlpha = 0.0
+        }
+        transition.updateAlpha(node: self.titleNode, alpha: titleAlpha)
         
         var subtitleAlpha: CGFloat
         var subtitleOffset: CGFloat = 0.0
@@ -2028,7 +2138,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         }
         #endif
         
-        if let starRating = self.currentStarRating {
+        let isRatingBadgeHiddenByGuGram = peer?.id == self.context.account.peerId && GuGramSettings.shared.isHideRatingBadgeEnabled
+        if let starRating = self.currentStarRating, !isRatingBadgeHiddenByGuGram {
             let subtitleRating: ComponentView<Empty>
             var subtitleRatingTransition = ComponentTransition(transition)
             if let current = self.subtitleRating {

@@ -1461,12 +1461,29 @@ public final class PeerInfoAvatarListContainerNode: ASDisplayNode {
                 return representation.flatMap { AvatarGalleryEntry(representation: $0.0, peer: peer) }
             }
             
-            self.disposable.set(combineLatest(queue: Queue.mainQueue(), peerInfoProfilePhotosWithCache(context: self.context, peerId: peer.id), entry).startStrict(next: { [weak self] completeAndEntries, entry in
+            let entriesSignal = combineLatest(
+                peerInfoProfilePhotosWithCache(context: self.context, peerId: peer.id),
+                GuGramSettings.shared.isCustomAvatarEnabledSignal,
+                GuGramSettings.shared.customAvatarPathSignal,
+                GuGramSettings.shared.hideAvatarSignal
+            )
+            
+            self.disposable.set(combineLatest(queue: Queue.mainQueue(), entriesSignal, entry).startStrict(next: { [weak self] entriesAndSettings, entry in
                 guard let strongSelf = self else {
                     return
                 }
                 
+                let (completeAndEntries, isCustomAvatarEnabled, customAvatarPath, isHideAvatar) = entriesAndSettings
                 var (complete, entries) = completeAndEntries
+                
+                if peer.id == strongSelf.context.account.peerId {
+                    if isCustomAvatarEnabled, let path = customAvatarPath, let _ = UIImage(contentsOfFile: path) {
+                        let customEntry = AvatarGalleryEntry(representation: TelegramMediaImageRepresentation(dimensions: PixelDimensions(width: 1280, height: 1280), resource: LocalFileReferenceMediaResource(localFilePath: path, randomId: GuGramSettings.shared.customAvatarVersion), progressiveSizes: [], immediateThumbnailData: nil, hasVideo: false, isPersonal: false), peer: peer)
+                        entries = [customEntry]
+                    } else if isHideAvatar {
+                        entries = []
+                    }
+                }
                 
                 if strongSelf.galleryEntries.count > 1, entries.count == 1 && !complete {
                     return

@@ -382,7 +382,27 @@ public final class AvatarNode: ASDisplayNode {
         public var editOverlayNode: AvatarEditOverlayNode?
         
         private let imageReadyDisposable = MetaDisposable()
+        private let guGramSettingsDisposable = MetaDisposable()
+        private var hasGuGramSubscription: Bool = false
         fileprivate var state: AvatarNodeState = .empty
+        
+        private struct PeerParams {
+            let accountPeerId: EnginePeer.Id
+            let postbox: Postbox?
+            let network: Network?
+            let contentSettings: ContentSettings?
+            let theme: PresentationTheme
+            let peer: EnginePeer?
+            let authorOfMessage: MessageReference?
+            let overrideImage: AvatarNodeImageOverride?
+            let emptyColor: UIColor?
+            let clipStyle: AvatarNodeClipStyle
+            let displayDimensions: CGSize
+            let storeUnrounded: Bool
+            let cutoutRect: CGRect?
+            let context: AccountContext?
+        }
+        private var lastPeerParams: PeerParams?
         
         public var unroundedImage: UIImage?
         private var currentImage: UIImage?
@@ -465,6 +485,7 @@ public final class AvatarNode: ASDisplayNode {
         
         deinit {
             self.loadDisposable.dispose()
+            self.guGramSettingsDisposable.dispose()
         }
         
         override public func didLoad() {
@@ -587,6 +608,33 @@ public final class AvatarNode: ASDisplayNode {
             storeUnrounded: Bool = false,
             cutoutRect: CGRect? = nil
         ) {
+            self.lastPeerParams = PeerParams(accountPeerId: accountPeerId, postbox: postbox, network: network, contentSettings: contentSettings, theme: theme, peer: peer, authorOfMessage: authorOfMessage, overrideImage: overrideImage, emptyColor: emptyColor, clipStyle: clipStyle, displayDimensions: displayDimensions, storeUnrounded: storeUnrounded, cutoutRect: cutoutRect, context: nil)
+            
+            if let peer = peer, peer.id == accountPeerId {
+                if !self.hasGuGramSubscription {
+                    self.hasGuGramSubscription = true
+                    var isFirstValue = true
+                    self.guGramSettingsDisposable.set((combineLatest(
+                        GuGramSettings.shared.isCustomAvatarEnabledSignal,
+                        GuGramSettings.shared.customAvatarPathSignal,
+                        GuGramSettings.shared.hideAvatarSignal
+                    )
+                    |> deliverOnMainQueue).startStrict(next: { [weak self] (_, _, _) in
+                        if isFirstValue {
+                            isFirstValue = false
+                            return
+                        }
+                        guard let strongSelf = self, let params = strongSelf.lastPeerParams else {
+                            return
+                        }
+                        strongSelf.setPeer(accountPeerId: params.accountPeerId, postbox: params.postbox!, network: params.network!, contentSettings: params.contentSettings!, theme: params.theme, peer: params.peer, authorOfMessage: params.authorOfMessage, overrideImage: params.overrideImage, emptyColor: params.emptyColor, clipStyle: params.clipStyle, synchronousLoad: false, displayDimensions: params.displayDimensions, storeUnrounded: params.storeUnrounded, cutoutRect: params.cutoutRect)
+                    }))
+                }
+            } else {
+                self.hasGuGramSubscription = false
+                self.guGramSettingsDisposable.set(nil)
+            }
+
             var synchronousLoad = synchronousLoad
             var representation: TelegramMediaImageRepresentation?
             var icon = AvatarNodeIcon.none
@@ -635,7 +683,24 @@ public final class AvatarNode: ASDisplayNode {
                 representation = peer?.smallProfileImage
             }
             
-            let updatedState: AvatarNodeState = .peerAvatar(peer?.id ?? EnginePeer.Id(0), peer?.nameColor, peer?.displayLetters ?? [], representation, clipStyle, cutoutRect)
+            var displayLetters = peer?.displayLetters ?? []
+            if let peer = peer, peer.id == accountPeerId {
+                let isCustomAvatarEnabled = GuGramSettings.shared.isCustomAvatarEnabled
+                let customAvatarPath = GuGramSettings.shared.customAvatarPath
+                let isHideAvatar = GuGramSettings.shared.isHideAvatarEnabled
+
+                if isCustomAvatarEnabled, let path = customAvatarPath, let _ = UIImage(contentsOfFile: path) {
+                    representation = TelegramMediaImageRepresentation(dimensions: PixelDimensions(width: 640, height: 640), resource: LocalFileReferenceMediaResource(localFilePath: path, randomId: GuGramSettings.shared.customAvatarVersion), progressiveSizes: [], immediateThumbnailData: nil, hasVideo: false, isPersonal: false)
+                    displayLetters = []
+                    icon = .none
+                } else if isHideAvatar {
+                    representation = nil
+                    displayLetters = []
+                    icon = .anonymousSavedMessagesIcon(isColored: true)
+                }
+            }
+
+            let updatedState: AvatarNodeState = .peerAvatar(peer?.id ?? EnginePeer.Id(0), peer?.nameColor, displayLetters, representation, clipStyle, cutoutRect)
             if updatedState != self.state || overrideImage != self.overrideImage || theme !== self.theme {
                 self.state = updatedState
                 self.overrideImage = overrideImage
@@ -670,7 +735,7 @@ public final class AvatarNode: ASDisplayNode {
                         self.editOverlayNode?.isHidden = true
                     }
                     
-                    parameters = AvatarNodeParameters(theme: theme, accountPeerId: accountPeerId, peerId: peer.id, colors: calculateAvatarColors(context: nil, explicitColorIndex: nil, peerId: peer.id, nameColor: peer.nameColor, icon: icon, theme: theme), letters: peer.displayLetters, font: self.font, icon: icon, explicitColorIndex: nil, hasImage: true, clipStyle: clipStyle, cutoutRect: cutoutRect)
+                    parameters = AvatarNodeParameters(theme: theme, accountPeerId: accountPeerId, peerId: peer.id, colors: calculateAvatarColors(context: nil, explicitColorIndex: nil, peerId: peer.id, nameColor: peer.nameColor, icon: icon, theme: theme), letters: displayLetters, font: self.font, icon: icon, explicitColorIndex: nil, hasImage: true, clipStyle: clipStyle, cutoutRect: cutoutRect)
                 } else {
                     self.imageReady.set(.single(true))
                     self.displaySuspended = false
@@ -680,7 +745,7 @@ public final class AvatarNode: ASDisplayNode {
                     
                     self.editOverlayNode?.isHidden = true
                     let colors = calculateAvatarColors(context: nil, explicitColorIndex: nil, peerId: peer?.id ?? EnginePeer.Id(0), nameColor: peer?.nameColor, icon: icon, theme: theme)
-                    parameters = AvatarNodeParameters(theme: theme, accountPeerId: accountPeerId, peerId: peer?.id ?? EnginePeer.Id(0), colors: colors, letters: peer?.displayLetters ?? [], font: self.font, icon: icon, explicitColorIndex: nil, hasImage: false, clipStyle: clipStyle, cutoutRect: cutoutRect)
+                    parameters = AvatarNodeParameters(theme: theme, accountPeerId: accountPeerId, peerId: peer?.id ?? EnginePeer.Id(0), colors: colors, letters: displayLetters, font: self.font, icon: icon, explicitColorIndex: nil, hasImage: false, clipStyle: clipStyle, cutoutRect: cutoutRect)
                     
                     if let badgeView = self.badgeView {
                         let badgeColor: UIColor
@@ -794,6 +859,33 @@ public final class AvatarNode: ASDisplayNode {
             storeUnrounded: Bool = false,
             cutoutRect: CGRect? = nil
         ) {
+            self.lastPeerParams = PeerParams(accountPeerId: account?.peerId ?? genericContext.account.peerId, postbox: nil, network: nil, contentSettings: nil, theme: theme, peer: peer, authorOfMessage: authorOfMessage, overrideImage: overrideImage, emptyColor: emptyColor, clipStyle: clipStyle, displayDimensions: displayDimensions, storeUnrounded: storeUnrounded, cutoutRect: cutoutRect, context: genericContext)
+            
+            if let peer = peer, peer.id == (account?.peerId ?? genericContext.account.peerId) {
+                if !self.hasGuGramSubscription {
+                    self.hasGuGramSubscription = true
+                    var isFirstValue = true
+                    self.guGramSettingsDisposable.set((combineLatest(
+                        GuGramSettings.shared.isCustomAvatarEnabledSignal,
+                        GuGramSettings.shared.customAvatarPathSignal,
+                        GuGramSettings.shared.hideAvatarSignal
+                    )
+                    |> deliverOnMainQueue).startStrict(next: { [weak self] (_, _, _) in
+                        if isFirstValue {
+                            isFirstValue = false
+                            return
+                        }
+                        guard let strongSelf = self, let params = strongSelf.lastPeerParams else {
+                            return
+                        }
+                        strongSelf.setPeer(context: params.context!, account: account, theme: params.theme, peer: params.peer, authorOfMessage: params.authorOfMessage, overrideImage: params.overrideImage, emptyColor: params.emptyColor, clipStyle: params.clipStyle, synchronousLoad: false, displayDimensions: params.displayDimensions, storeUnrounded: params.storeUnrounded, cutoutRect: params.cutoutRect)
+                    }))
+                }
+            } else {
+                self.hasGuGramSubscription = false
+                self.guGramSettingsDisposable.set(nil)
+            }
+
             var synchronousLoad = synchronousLoad
             var representation: TelegramMediaImageRepresentation?
             var icon = AvatarNodeIcon.none
@@ -842,7 +934,24 @@ public final class AvatarNode: ASDisplayNode {
                 representation = peer?.smallProfileImage
             }
             
-            let updatedState: AvatarNodeState = .peerAvatar(peer?.id ?? EnginePeer.Id(0), peer?.nameColor, peer?.displayLetters ?? [], representation, clipStyle, cutoutRect)
+            var displayLetters = peer?.displayLetters ?? []
+            if let peer = peer, peer.id == (account?.peerId ?? genericContext.account.peerId) {
+                let isCustomAvatarEnabled = GuGramSettings.shared.isCustomAvatarEnabled
+                let customAvatarPath = GuGramSettings.shared.customAvatarPath
+                let isHideAvatar = GuGramSettings.shared.isHideAvatarEnabled
+
+                if isCustomAvatarEnabled, let path = customAvatarPath, let _ = UIImage(contentsOfFile: path) {
+                    representation = TelegramMediaImageRepresentation(dimensions: PixelDimensions(width: 640, height: 640), resource: LocalFileReferenceMediaResource(localFilePath: path, randomId: GuGramSettings.shared.customAvatarVersion), progressiveSizes: [], immediateThumbnailData: nil, hasVideo: false, isPersonal: false)
+                    displayLetters = []
+                    icon = .none
+                } else if isHideAvatar {
+                    representation = nil
+                    displayLetters = []
+                    icon = .anonymousSavedMessagesIcon(isColored: true)
+                }
+            }
+
+            let updatedState: AvatarNodeState = .peerAvatar(peer?.id ?? EnginePeer.Id(0), peer?.nameColor, displayLetters, representation, clipStyle, cutoutRect)
             if updatedState != self.state || overrideImage != self.overrideImage || theme !== self.theme {
                 self.state = updatedState
                 self.overrideImage = overrideImage
@@ -879,7 +988,7 @@ public final class AvatarNode: ASDisplayNode {
                         self.editOverlayNode?.isHidden = true
                     }
                     
-                    parameters = AvatarNodeParameters(theme: theme, accountPeerId: account.peerId, peerId: peer.id, colors: calculateAvatarColors(context: genericContext, explicitColorIndex: nil, peerId: peer.id, nameColor: peer.nameColor, icon: icon, theme: theme), letters: peer.displayLetters, font: self.font, icon: icon, explicitColorIndex: nil, hasImage: true, clipStyle: clipStyle, cutoutRect: cutoutRect)
+                    parameters = AvatarNodeParameters(theme: theme, accountPeerId: account.peerId, peerId: peer.id, colors: calculateAvatarColors(context: nil, explicitColorIndex: nil, peerId: peer.id, nameColor: peer.nameColor, icon: icon, theme: theme), letters: displayLetters, font: self.font, icon: icon, explicitColorIndex: nil, hasImage: true, clipStyle: clipStyle, cutoutRect: cutoutRect)
                 } else {
                     self.imageReady.set(.single(true))
                     self.displaySuspended = false
@@ -888,8 +997,8 @@ public final class AvatarNode: ASDisplayNode {
                     }
                     
                     self.editOverlayNode?.isHidden = true
-                    let colors = calculateAvatarColors(context: genericContext, explicitColorIndex: nil, peerId: peer?.id ?? EnginePeer.Id(0), nameColor: peer?.nameColor, icon: icon, theme: theme)
-                    parameters = AvatarNodeParameters(theme: theme, accountPeerId: account.peerId, peerId: peer?.id ?? EnginePeer.Id(0), colors: colors, letters: peer?.displayLetters ?? [], font: self.font, icon: icon, explicitColorIndex: nil, hasImage: false, clipStyle: clipStyle, cutoutRect: cutoutRect)
+                    let colors = calculateAvatarColors(context: nil, explicitColorIndex: nil, peerId: peer?.id ?? EnginePeer.Id(0), nameColor: peer?.nameColor, icon: icon, theme: theme)
+                    parameters = AvatarNodeParameters(theme: theme, accountPeerId: account.peerId, peerId: peer?.id ?? EnginePeer.Id(0), colors: colors, letters: displayLetters, font: self.font, icon: icon, explicitColorIndex: nil, hasImage: false, clipStyle: clipStyle, cutoutRect: cutoutRect)
                     
                     if let badgeView = self.badgeView {
                         let badgeColor: UIColor

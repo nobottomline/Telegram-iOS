@@ -293,6 +293,11 @@ void setLayerDisableScreenshots(CALayer * _Nonnull layer, bool disableScreenshot
             }
         }
     });
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"GuGram_BypassCopyProtection"]) {
+        disableScreenshots = false;
+    }
+
     if (secureView == nil) {
         return;
     }

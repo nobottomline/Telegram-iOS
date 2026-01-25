@@ -686,8 +686,9 @@ extension ChatControllerImpl {
                     managingBot,
                     adMessage,
                     displayedPeerVerification,
-                    globalPrivacySettings
-                ).startStrict(next: { [weak self] peerView, globalNotificationSettings, onlineMemberCount, hasScheduledMessages, pinnedCount, threadInfo, hasSearchTags, hasSavedChats, isPremiumRequiredForMessaging, managingBot, adMessage, displayedPeerVerification, globalPrivacySettings in
+                    globalPrivacySettings,
+                    GuGramSettings.shared.bypassCopyProtectionSignal
+                ).startStrict(next: { [weak self] peerView, globalNotificationSettings, onlineMemberCount, hasScheduledMessages, pinnedCount, threadInfo, hasSearchTags, hasSavedChats, isPremiumRequiredForMessaging, managingBot, adMessage, displayedPeerVerification, globalPrivacySettings, _ in
                     guard let strongSelf = self else {
                         return
                     }
