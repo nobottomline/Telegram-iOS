@@ -27,17 +27,32 @@ private final class ProfileLevelInfoScreenComponent: Component {
     let peer: EnginePeer
     let starRating: TelegramStarRating
     let pendingStarRating: TelegramStarPendingRating?
+    let nextLevelOverride: Int32?
+    let currentStarsInfinity: Bool
+    let nextStarsInfinity: Bool
+    let currentLevelInfinity: Bool
+    let nextLevelInfinity: Bool
     
     init(
         context: AccountContext,
         peer: EnginePeer,
         starRating: TelegramStarRating,
-        pendingStarRating: TelegramStarPendingRating?
+        pendingStarRating: TelegramStarPendingRating?,
+        nextLevelOverride: Int32?,
+        currentStarsInfinity: Bool,
+        nextStarsInfinity: Bool,
+        currentLevelInfinity: Bool,
+        nextLevelInfinity: Bool
     ) {
         self.context = context
         self.peer = peer
         self.starRating = starRating
         self.pendingStarRating = pendingStarRating
+        self.nextLevelOverride = nextLevelOverride
+        self.currentStarsInfinity = currentStarsInfinity
+        self.nextStarsInfinity = nextStarsInfinity
+        self.currentLevelInfinity = currentLevelInfinity
+        self.nextLevelInfinity = nextLevelInfinity
     }
     
     static func ==(lhs: ProfileLevelInfoScreenComponent, rhs: ProfileLevelInfoScreenComponent) -> Bool {
@@ -449,11 +464,20 @@ private final class ProfileLevelInfoScreenComponent: Component {
             var badgeTextSuffix: String?
             let currentLevel: Int32
             let nextLevel: Int32?
+            let nextLevelOverride = component.nextLevelOverride
+            let currentStarsInfinity = component.currentStarsInfinity
+            let nextStarsInfinity = component.nextStarsInfinity
+            let currentLevelInfinity = component.currentLevelInfinity
+            let nextLevelInfinity = component.nextLevelInfinity
             
             if let pendingStarRating = component.pendingStarRating, pendingStarRating.rating.stars > component.starRating.stars, self.isPreviewingPendingRating {
                 badgeText = starCountString(Int64(pendingStarRating.rating.stars), decimalSeparator: ".")
                 currentLevel = pendingStarRating.rating.level
-                nextLevel = pendingStarRating.rating.nextLevelStars == nil ? nil : currentLevel + 1
+                if let nextLevelOverride {
+                    nextLevel = nextLevelOverride
+                } else {
+                    nextLevel = pendingStarRating.rating.nextLevelStars == nil ? nil : currentLevel + 1
+                }
                 if let nextLevelStars = pendingStarRating.rating.nextLevelStars {
                     badgeTextSuffix = " / \(starCountString(Int64(nextLevelStars), decimalSeparator: "."))"
                 }
@@ -465,7 +489,11 @@ private final class ProfileLevelInfoScreenComponent: Component {
             } else {
                 badgeText = starCountString(Int64(component.starRating.stars), decimalSeparator: ".")
                 currentLevel = component.starRating.level
-                nextLevel = component.starRating.nextLevelStars == nil ? nil : currentLevel + 1
+                if let nextLevelOverride {
+                    nextLevel = nextLevelOverride
+                } else {
+                    nextLevel = component.starRating.nextLevelStars == nil ? nil : currentLevel + 1
+                }
                 if let nextLevelStars = component.starRating.nextLevelStars {
                     badgeTextSuffix = " / \(starCountString(Int64(nextLevelStars), decimalSeparator: "."))"
                 }
@@ -477,18 +505,33 @@ private final class ProfileLevelInfoScreenComponent: Component {
                     levelFraction = 1.0
                 }
             }
-            
-            levelFraction = max(0.0, levelFraction)
+
+            var effectiveBadgeText = badgeText
+            var effectiveBadgeSuffix = badgeTextSuffix
+            var effectiveLevelFraction = levelFraction
+
+            if currentStarsInfinity {
+                effectiveBadgeText = "∞"
+                effectiveLevelFraction = 1.0
+            }
+            if nextStarsInfinity {
+                effectiveBadgeSuffix = " / ∞"
+                if !currentStarsInfinity {
+                    effectiveLevelFraction = 0.0
+                }
+            }
+
+            levelFraction = max(0.0, effectiveLevelFraction)
             
             let levelInfoSize = self.levelInfo.update(
                 transition: isChangingPreview ? ComponentTransition.immediate.withUserData(ProfileLevelRatingBarComponent.TransitionHint(animate: true)) : .immediate,
                 component: AnyComponent(ProfileLevelRatingBarComponent(
                     theme: environment.theme,
                     value: levelFraction,
-                    leftLabel: currentLevel < 0 ? "" : environment.strings.ProfileLevelInfo_LevelIndex(Int32(currentLevel)),
-                    rightLabel: currentLevel < 0 ? environment.strings.ProfileLevelInfo_NegativeRating : nextLevel.flatMap { environment.strings.ProfileLevelInfo_LevelIndex(Int32($0)) } ?? "",
-                    badgeValue: badgeText,
-                    badgeTotal: badgeTextSuffix,
+                    leftLabel: currentLevel < 0 ? "" : (currentLevelInfinity ? "∞" : environment.strings.ProfileLevelInfo_LevelIndex(Int32(currentLevel))),
+                    rightLabel: currentLevel < 0 ? environment.strings.ProfileLevelInfo_NegativeRating : (nextLevelInfinity ? "∞" : (nextLevel.flatMap { environment.strings.ProfileLevelInfo_LevelIndex(Int32($0)) } ?? "")),
+                    badgeValue: effectiveBadgeText,
+                    badgeTotal: effectiveBadgeSuffix,
                     level: Int(currentLevel),
                     icon: .rating
                 )),
@@ -841,7 +884,12 @@ public class ProfileLevelInfoScreen: ViewControllerComponentContainer {
         peer: EnginePeer,
         starRating: TelegramStarRating,
         pendingStarRating: TelegramStarPendingRating?,
-        customTheme: PresentationTheme?
+        customTheme: PresentationTheme?,
+        nextLevelOverride: Int32? = nil,
+        currentStarsInfinity: Bool = false,
+        nextStarsInfinity: Bool = false,
+        currentLevelInfinity: Bool = false,
+        nextLevelInfinity: Bool = false
     ) {
         self.context = context
         
@@ -855,7 +903,12 @@ public class ProfileLevelInfoScreen: ViewControllerComponentContainer {
             context: context,
             peer: peer,
             starRating: starRating,
-            pendingStarRating: pendingStarRating
+            pendingStarRating: pendingStarRating,
+            nextLevelOverride: nextLevelOverride,
+            currentStarsInfinity: currentStarsInfinity,
+            nextStarsInfinity: nextStarsInfinity,
+            currentLevelInfinity: currentLevelInfinity,
+            nextLevelInfinity: nextLevelInfinity
         ), navigationBarAppearance: .none, theme: theme)
         
         self.statusBar.statusBarStyle = .Ignore

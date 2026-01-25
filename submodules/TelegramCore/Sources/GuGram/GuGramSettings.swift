@@ -43,6 +43,45 @@ public final class GuGramSettings {
     private let hideRatingBadgeKey = "GuGram_HideRatingBadge"
     private let hideRatingBadgePromise = ValuePromise<Bool>(false)
 
+    private let isCustomRatingBadgeEnabledKey = "GuGram_IsCustomRatingBadgeEnabled"
+    private let isCustomRatingBadgeEnabledPromise = ValuePromise<Bool>(false)
+
+    private let customRatingBadgeLevelKey = "GuGram_CustomRatingBadgeLevel"
+    private let customRatingBadgeLevelPromise = ValuePromise<Int32>(1)
+
+    private let customRatingBadgeColorKey = "GuGram_CustomRatingBadgeColor"
+    private let customRatingBadgeColorPromise = ValuePromise<Int32>(0)
+
+    private let customRatingBadgeInfinityKey = "GuGram_CustomRatingBadgeInfinity"
+    private let customRatingBadgeInfinityPromise = ValuePromise<Bool>(false)
+
+    private let isCustomRatingInfoEnabledKey = "GuGram_IsCustomRatingInfoEnabled"
+    private let isCustomRatingInfoEnabledPromise = ValuePromise<Bool>(false)
+
+    private let customRatingInfoCurrentStarsKey = "GuGram_CustomRatingInfoCurrentStars"
+    private let customRatingInfoCurrentStarsPromise = ValuePromise<Int64>(0)
+
+    private let customRatingInfoNextStarsKey = "GuGram_CustomRatingInfoNextStars"
+    private let customRatingInfoNextStarsPromise = ValuePromise<Int64>(-1)
+
+    private let customRatingInfoCurrentStarsInfinityKey = "GuGram_CustomRatingInfoCurrentStarsInfinity"
+    private let customRatingInfoCurrentStarsInfinityPromise = ValuePromise<Bool>(false)
+
+    private let customRatingInfoNextStarsInfinityKey = "GuGram_CustomRatingInfoNextStarsInfinity"
+    private let customRatingInfoNextStarsInfinityPromise = ValuePromise<Bool>(false)
+
+    private let customRatingInfoCurrentLevelKey = "GuGram_CustomRatingInfoCurrentLevel"
+    private let customRatingInfoCurrentLevelPromise = ValuePromise<Int32>(1)
+
+    private let customRatingInfoNextLevelKey = "GuGram_CustomRatingInfoNextLevel"
+    private let customRatingInfoNextLevelPromise = ValuePromise<Int32>(0)
+
+    private let customRatingInfoCurrentLevelInfinityKey = "GuGram_CustomRatingInfoCurrentLevelInfinity"
+    private let customRatingInfoCurrentLevelInfinityPromise = ValuePromise<Bool>(false)
+
+    private let customRatingInfoNextLevelInfinityKey = "GuGram_CustomRatingInfoNextLevelInfinity"
+    private let customRatingInfoNextLevelInfinityPromise = ValuePromise<Bool>(false)
+
     private let customNameKey = "GuGram_CustomName"
     private let customNamePromise = ValuePromise<String>("")
 
@@ -115,6 +154,58 @@ public final class GuGramSettings {
         return self.hideRatingBadgePromise.get()
     }
 
+    public var isCustomRatingBadgeEnabledSignal: Signal<Bool, NoError> {
+        return self.isCustomRatingBadgeEnabledPromise.get()
+    }
+
+    public var customRatingBadgeLevelSignal: Signal<Int32, NoError> {
+        return self.customRatingBadgeLevelPromise.get()
+    }
+
+    public var customRatingBadgeColorSignal: Signal<Int32, NoError> {
+        return self.customRatingBadgeColorPromise.get()
+    }
+
+    public var customRatingBadgeInfinitySignal: Signal<Bool, NoError> {
+        return self.customRatingBadgeInfinityPromise.get()
+    }
+
+    public var isCustomRatingInfoEnabledSignal: Signal<Bool, NoError> {
+        return self.isCustomRatingInfoEnabledPromise.get()
+    }
+
+    public var customRatingInfoCurrentStarsSignal: Signal<Int64, NoError> {
+        return self.customRatingInfoCurrentStarsPromise.get()
+    }
+
+    public var customRatingInfoNextStarsSignal: Signal<Int64, NoError> {
+        return self.customRatingInfoNextStarsPromise.get()
+    }
+
+    public var customRatingInfoCurrentStarsInfinitySignal: Signal<Bool, NoError> {
+        return self.customRatingInfoCurrentStarsInfinityPromise.get()
+    }
+
+    public var customRatingInfoNextStarsInfinitySignal: Signal<Bool, NoError> {
+        return self.customRatingInfoNextStarsInfinityPromise.get()
+    }
+
+    public var customRatingInfoCurrentLevelSignal: Signal<Int32, NoError> {
+        return self.customRatingInfoCurrentLevelPromise.get()
+    }
+
+    public var customRatingInfoNextLevelSignal: Signal<Int32, NoError> {
+        return self.customRatingInfoNextLevelPromise.get()
+    }
+
+    public var customRatingInfoCurrentLevelInfinitySignal: Signal<Bool, NoError> {
+        return self.customRatingInfoCurrentLevelInfinityPromise.get()
+    }
+
+    public var customRatingInfoNextLevelInfinitySignal: Signal<Bool, NoError> {
+        return self.customRatingInfoNextLevelInfinityPromise.get()
+    }
+
     public var customNameSignal: Signal<String, NoError> {
         return self.customNamePromise.get()
     }
@@ -153,6 +244,19 @@ public final class GuGramSettings {
         public var customUsername: String
         public var isCustomUsernameEnabled: Bool
         public var hideRatingBadge: Bool
+        public var isCustomRatingBadgeEnabled: Bool
+        public var customRatingBadgeLevel: Int32
+        public var customRatingBadgeColor: Int32
+        public var customRatingBadgeInfinity: Bool
+        public var isCustomRatingInfoEnabled: Bool
+        public var customRatingInfoCurrentStars: Int64
+        public var customRatingInfoNextStars: Int64
+        public var customRatingInfoCurrentStarsInfinity: Bool
+        public var customRatingInfoNextStarsInfinity: Bool
+        public var customRatingInfoCurrentLevel: Int32
+        public var customRatingInfoNextLevel: Int32
+        public var customRatingInfoCurrentLevelInfinity: Bool
+        public var customRatingInfoNextLevelInfinity: Bool
         public var customName: String
         public var isCustomNameEnabled: Bool
         public var customPhoneNumber: String
@@ -178,6 +282,19 @@ public final class GuGramSettings {
             self.customUsernamePromise.get(),
             self.isCustomUsernameEnabledPromise.get(),
             self.hideRatingBadgePromise.get(),
+            self.isCustomRatingBadgeEnabledPromise.get(),
+            self.customRatingBadgeLevelPromise.get(),
+            self.customRatingBadgeColorPromise.get(),
+            self.customRatingBadgeInfinityPromise.get(),
+            self.isCustomRatingInfoEnabledPromise.get(),
+            self.customRatingInfoCurrentStarsPromise.get(),
+            self.customRatingInfoNextStarsPromise.get(),
+            self.customRatingInfoCurrentStarsInfinityPromise.get(),
+            self.customRatingInfoNextStarsInfinityPromise.get(),
+            self.customRatingInfoCurrentLevelPromise.get(),
+            self.customRatingInfoNextLevelPromise.get(),
+            self.customRatingInfoCurrentLevelInfinityPromise.get(),
+            self.customRatingInfoNextLevelInfinityPromise.get(),
             self.customNamePromise.get(),
             self.isCustomNameEnabledPromise.get(),
             self.customPhoneNumberPromise.get(),
@@ -201,12 +318,25 @@ public final class GuGramSettings {
                 customUsername: v2.2,
                 isCustomUsernameEnabled: v2.3,
                 hideRatingBadge: v2.4,
-                customName: v2.5,
-                isCustomNameEnabled: v2.6,
-                customPhoneNumber: v2.7,
-                isCustomPhoneNumberEnabled: v2.8,
-                isCustomAvatarEnabled: v2.9,
-                customAvatarPath: v2.10
+                isCustomRatingBadgeEnabled: v2.5,
+                customRatingBadgeLevel: v2.6,
+                customRatingBadgeColor: v2.7,
+                customRatingBadgeInfinity: v2.8,
+                isCustomRatingInfoEnabled: v2.9,
+                customRatingInfoCurrentStars: v2.10,
+                customRatingInfoNextStars: v2.11,
+                customRatingInfoCurrentStarsInfinity: v2.12,
+                customRatingInfoNextStarsInfinity: v2.13,
+                customRatingInfoCurrentLevel: v2.14,
+                customRatingInfoNextLevel: v2.15,
+                customRatingInfoCurrentLevelInfinity: v2.16,
+                customRatingInfoNextLevelInfinity: v2.17,
+                customName: v2.18,
+                isCustomNameEnabled: v2.19,
+                customPhoneNumber: v2.20,
+                isCustomPhoneNumberEnabled: v2.21,
+                isCustomAvatarEnabled: v2.22,
+                customAvatarPath: v2.23
             )
         }
     }
@@ -347,6 +477,141 @@ public final class GuGramSettings {
         }
     }
 
+    public var isCustomRatingBadgeEnabled: Bool {
+        get {
+            return UserDefaults.standard.bool(forKey: isCustomRatingBadgeEnabledKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: isCustomRatingBadgeEnabledKey)
+            self.isCustomRatingBadgeEnabledPromise.set(newValue)
+        }
+    }
+
+    public var customRatingBadgeLevel: Int32 {
+        get {
+            let value = UserDefaults.standard.integer(forKey: customRatingBadgeLevelKey)
+            return value == 0 ? 1 : Int32(value)
+        }
+        set {
+            UserDefaults.standard.set(Int(newValue), forKey: customRatingBadgeLevelKey)
+            self.customRatingBadgeLevelPromise.set(newValue)
+        }
+    }
+
+    public var customRatingBadgeColor: Int32 {
+        get {
+            return Int32(UserDefaults.standard.integer(forKey: customRatingBadgeColorKey))
+        }
+        set {
+            UserDefaults.standard.set(Int(newValue), forKey: customRatingBadgeColorKey)
+            self.customRatingBadgeColorPromise.set(newValue)
+        }
+    }
+
+    public var customRatingBadgeInfinity: Bool {
+        get {
+            return UserDefaults.standard.bool(forKey: customRatingBadgeInfinityKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: customRatingBadgeInfinityKey)
+            self.customRatingBadgeInfinityPromise.set(newValue)
+        }
+    }
+
+    public var isCustomRatingInfoEnabled: Bool {
+        get {
+            return UserDefaults.standard.bool(forKey: isCustomRatingInfoEnabledKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: isCustomRatingInfoEnabledKey)
+            self.isCustomRatingInfoEnabledPromise.set(newValue)
+        }
+    }
+
+    public var customRatingInfoCurrentStars: Int64 {
+        get {
+            return Int64(UserDefaults.standard.integer(forKey: customRatingInfoCurrentStarsKey))
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: customRatingInfoCurrentStarsKey)
+            self.customRatingInfoCurrentStarsPromise.set(newValue)
+        }
+    }
+
+    public var customRatingInfoNextStars: Int64 {
+        get {
+            if UserDefaults.standard.object(forKey: customRatingInfoNextStarsKey) == nil {
+                return -1
+            }
+            return Int64(UserDefaults.standard.integer(forKey: customRatingInfoNextStarsKey))
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: customRatingInfoNextStarsKey)
+            self.customRatingInfoNextStarsPromise.set(newValue)
+        }
+    }
+
+    public var customRatingInfoCurrentStarsInfinity: Bool {
+        get {
+            return UserDefaults.standard.bool(forKey: customRatingInfoCurrentStarsInfinityKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: customRatingInfoCurrentStarsInfinityKey)
+            self.customRatingInfoCurrentStarsInfinityPromise.set(newValue)
+        }
+    }
+
+    public var customRatingInfoNextStarsInfinity: Bool {
+        get {
+            return UserDefaults.standard.bool(forKey: customRatingInfoNextStarsInfinityKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: customRatingInfoNextStarsInfinityKey)
+            self.customRatingInfoNextStarsInfinityPromise.set(newValue)
+        }
+    }
+
+    public var customRatingInfoCurrentLevel: Int32 {
+        get {
+            let value = UserDefaults.standard.integer(forKey: customRatingInfoCurrentLevelKey)
+            return value == 0 ? 1 : Int32(value)
+        }
+        set {
+            UserDefaults.standard.set(Int(newValue), forKey: customRatingInfoCurrentLevelKey)
+            self.customRatingInfoCurrentLevelPromise.set(newValue)
+        }
+    }
+
+    public var customRatingInfoNextLevel: Int32 {
+        get {
+            return Int32(UserDefaults.standard.integer(forKey: customRatingInfoNextLevelKey))
+        }
+        set {
+            UserDefaults.standard.set(Int(newValue), forKey: customRatingInfoNextLevelKey)
+            self.customRatingInfoNextLevelPromise.set(newValue)
+        }
+    }
+
+    public var customRatingInfoCurrentLevelInfinity: Bool {
+        get {
+            return UserDefaults.standard.bool(forKey: customRatingInfoCurrentLevelInfinityKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: customRatingInfoCurrentLevelInfinityKey)
+            self.customRatingInfoCurrentLevelInfinityPromise.set(newValue)
+        }
+    }
+
+    public var customRatingInfoNextLevelInfinity: Bool {
+        get {
+            return UserDefaults.standard.bool(forKey: customRatingInfoNextLevelInfinityKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: customRatingInfoNextLevelInfinityKey)
+            self.customRatingInfoNextLevelInfinityPromise.set(newValue)
+        }
+    }
+
     public var customName: String {
         get {
             return UserDefaults.standard.string(forKey: customNameKey) ?? ""
@@ -428,6 +693,19 @@ public final class GuGramSettings {
         self.customUsernamePromise.set(self.customUsername)
         self.isCustomUsernameEnabledPromise.set(self.isCustomUsernameEnabled)
         self.hideRatingBadgePromise.set(self.isHideRatingBadgeEnabled)
+        self.isCustomRatingBadgeEnabledPromise.set(self.isCustomRatingBadgeEnabled)
+        self.customRatingBadgeLevelPromise.set(self.customRatingBadgeLevel)
+        self.customRatingBadgeColorPromise.set(self.customRatingBadgeColor)
+        self.customRatingBadgeInfinityPromise.set(self.customRatingBadgeInfinity)
+        self.isCustomRatingInfoEnabledPromise.set(self.isCustomRatingInfoEnabled)
+        self.customRatingInfoCurrentStarsPromise.set(self.customRatingInfoCurrentStars)
+        self.customRatingInfoNextStarsPromise.set(self.customRatingInfoNextStars)
+        self.customRatingInfoCurrentStarsInfinityPromise.set(self.customRatingInfoCurrentStarsInfinity)
+        self.customRatingInfoNextStarsInfinityPromise.set(self.customRatingInfoNextStarsInfinity)
+        self.customRatingInfoCurrentLevelPromise.set(self.customRatingInfoCurrentLevel)
+        self.customRatingInfoNextLevelPromise.set(self.customRatingInfoNextLevel)
+        self.customRatingInfoCurrentLevelInfinityPromise.set(self.customRatingInfoCurrentLevelInfinity)
+        self.customRatingInfoNextLevelInfinityPromise.set(self.customRatingInfoNextLevelInfinity)
         self.customNamePromise.set(self.customName)
         self.isCustomNameEnabledPromise.set(self.isCustomNameEnabled)
         self.customPhoneNumberPromise.set(self.customPhoneNumber)

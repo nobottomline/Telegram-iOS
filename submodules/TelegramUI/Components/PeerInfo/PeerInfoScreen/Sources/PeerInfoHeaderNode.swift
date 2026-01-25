@@ -200,6 +200,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     var emojiStatusFileAndPackTitle = Promise<(TelegramMediaFile, LoadedStickerPack)?>()
     private let guGramAvatarDisposable = MetaDisposable()
     private var hasGuGramAvatarSubscription: Bool = false
+    private let guGramRatingDisposable = MetaDisposable()
+    private var hasGuGramRatingSubscription: Bool = false
 
     var customNavigationContentNode: PeerInfoPanelNodeNavigationContentNode?
     private var appliedCustomNavigationContentNode: PeerInfoPanelNodeNavigationContentNode?
@@ -386,6 +388,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     deinit {
         self.emojiStatusPackDisposable.dispose()
         self.guGramAvatarDisposable.dispose()
+        self.guGramRatingDisposable.dispose()
     }
     
     override func didLoad() {
@@ -554,9 +557,41 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                     let _ = strongSelf.update(width: params.width, containerHeight: params.containerHeight, containerInset: params.containerInset, statusBarHeight: params.statusBarHeight, navigationHeight: params.navigationHeight, isModalOverlay: params.isModalOverlay, isMediaOnly: params.isMediaOnly, contentOffset: params.contentOffset, paneContainerY: params.paneContainerY, presentationData: params.presentationData, peer: params.peer, cachedData: params.cachedData, threadData: params.threadData, peerNotificationSettings: params.peerNotificationSettings, threadNotificationSettings: params.threadNotificationSettings, globalNotificationSettings: params.globalNotificationSettings, statusData: params.statusData, panelStatusData: params.panelStatusData, isSecretChat: params.isSecretChat, isContact: params.isContact, isSettings: params.isSettings, state: params.state, profileGiftsContext: params.profileGiftsContext, screenData: params.screenData, isSearching: params.isSearching, metrics: params.metrics, deviceMetrics: params.deviceMetrics, transition: .immediate, additive: params.additive, animateHeader: false)
                 }))
             }
+            if !self.hasGuGramRatingSubscription {
+                self.hasGuGramRatingSubscription = true
+                var isFirstValue = true
+                self.guGramRatingDisposable.set((combineLatest(
+                    GuGramSettings.shared.hideRatingBadgeSignal,
+                    GuGramSettings.shared.isCustomRatingBadgeEnabledSignal,
+                    GuGramSettings.shared.customRatingBadgeLevelSignal,
+                    GuGramSettings.shared.customRatingBadgeColorSignal,
+                    GuGramSettings.shared.customRatingBadgeInfinitySignal,
+                    GuGramSettings.shared.isCustomRatingInfoEnabledSignal,
+                    GuGramSettings.shared.customRatingInfoCurrentStarsSignal,
+                    GuGramSettings.shared.customRatingInfoNextStarsSignal,
+                    GuGramSettings.shared.customRatingInfoCurrentStarsInfinitySignal,
+                    GuGramSettings.shared.customRatingInfoNextStarsInfinitySignal,
+                    GuGramSettings.shared.customRatingInfoCurrentLevelSignal,
+                    GuGramSettings.shared.customRatingInfoNextLevelSignal,
+                    GuGramSettings.shared.customRatingInfoCurrentLevelInfinitySignal,
+                    GuGramSettings.shared.customRatingInfoNextLevelInfinitySignal
+                )
+                |> deliverOnMainQueue).startStrict(next: { [weak self] _ in
+                    if isFirstValue {
+                        isFirstValue = false
+                        return
+                    }
+                    guard let strongSelf = self, let params = strongSelf.lastPeerParams else {
+                        return
+                    }
+                    let _ = strongSelf.update(width: params.width, containerHeight: params.containerHeight, containerInset: params.containerInset, statusBarHeight: params.statusBarHeight, navigationHeight: params.navigationHeight, isModalOverlay: params.isModalOverlay, isMediaOnly: params.isMediaOnly, contentOffset: params.contentOffset, paneContainerY: params.paneContainerY, presentationData: params.presentationData, peer: params.peer, cachedData: params.cachedData, threadData: params.threadData, peerNotificationSettings: params.peerNotificationSettings, threadNotificationSettings: params.threadNotificationSettings, globalNotificationSettings: params.globalNotificationSettings, statusData: params.statusData, panelStatusData: params.panelStatusData, isSecretChat: params.isSecretChat, isContact: params.isContact, isSettings: params.isSettings, state: params.state, profileGiftsContext: params.profileGiftsContext, screenData: params.screenData, isSearching: params.isSearching, metrics: params.metrics, deviceMetrics: params.deviceMetrics, transition: .immediate, additive: params.additive, animateHeader: false)
+                }))
+            }
         } else {
             self.hasGuGramAvatarSubscription = false
             self.guGramAvatarDisposable.set(nil)
+            self.hasGuGramRatingSubscription = false
+            self.guGramRatingDisposable.set(nil)
         }
 
         if self.appliedCustomNavigationContentNode !== self.customNavigationContentNode {
@@ -2138,8 +2173,61 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         }
         #endif
         
-        let isRatingBadgeHiddenByGuGram = peer?.id == self.context.account.peerId && GuGramSettings.shared.isHideRatingBadgeEnabled
-        if let starRating = self.currentStarRating, !isRatingBadgeHiddenByGuGram {
+        let isOwnProfile = peer?.id == self.context.account.peerId
+        let isRatingBadgeHiddenByGuGram = isOwnProfile && GuGramSettings.shared.isHideRatingBadgeEnabled
+        let isCustomRatingBadgeEnabled = isOwnProfile && GuGramSettings.shared.isCustomRatingBadgeEnabled
+        let isCustomRatingBadgeInfinity = isOwnProfile && GuGramSettings.shared.customRatingBadgeInfinity
+
+        // Determine the effective rating to display
+        let effectiveStarRating: TelegramStarRating?
+        let effectiveLevel: Int
+        let effectiveDisplayText: String?
+        let effectiveBackgroundColor: UIColor
+        let effectiveBorderColor: UIColor
+        let effectiveForegroundColor: UIColor
+
+        if isCustomRatingBadgeEnabled {
+            let customLevel = GuGramSettings.shared.customRatingBadgeLevel
+            let customColorValue = GuGramSettings.shared.customRatingBadgeColor
+            if isCustomRatingBadgeInfinity {
+                effectiveDisplayText = "∞"
+                effectiveLevel = 90
+                effectiveStarRating = TelegramStarRating(level: 90, currentLevelStars: 0, stars: 0, nextLevelStars: nil)
+            } else {
+                effectiveDisplayText = nil
+                effectiveLevel = Int(customLevel)
+                effectiveStarRating = TelegramStarRating(level: customLevel, currentLevelStars: 0, stars: 0, nextLevelStars: nil)
+            }
+
+            if customColorValue != 0 {
+                let customColor = UIColor(rgb: UInt32(customColorValue))
+                effectiveBackgroundColor = customColor
+                effectiveBorderColor = .clear
+                effectiveForegroundColor = .white
+            } else {
+                effectiveBackgroundColor = ratingBackgroundColor
+                effectiveBorderColor = ratingBorderColor
+                effectiveForegroundColor = ratingForegroundColor
+            }
+        } else if let starRating = self.currentStarRating {
+            effectiveStarRating = starRating
+            effectiveLevel = Int(starRating.level)
+            effectiveDisplayText = nil
+            effectiveBackgroundColor = ratingBackgroundColor
+            effectiveBorderColor = ratingBorderColor
+            effectiveForegroundColor = ratingForegroundColor
+        } else {
+            effectiveStarRating = nil
+            effectiveLevel = 0
+            effectiveDisplayText = nil
+            effectiveBackgroundColor = ratingBackgroundColor
+            effectiveBorderColor = ratingBorderColor
+            effectiveForegroundColor = ratingForegroundColor
+        }
+
+        let shouldShowRatingBadge = (effectiveStarRating != nil || isCustomRatingBadgeEnabled) && !isRatingBadgeHiddenByGuGram
+
+        if shouldShowRatingBadge {
             let subtitleRating: ComponentView<Empty>
             var subtitleRatingTransition = ComponentTransition(transition)
             if let current = self.subtitleRating {
@@ -2149,24 +2237,52 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 subtitleRating = ComponentView()
                 self.subtitleRating = subtitleRating
             }
-            
+
             subtitleRatingSize = subtitleRating.update(
                 transition: subtitleRatingTransition,
                 component: AnyComponent(PeerInfoRatingComponent(
-                    backgroundColor: ratingBackgroundColor,
-                    borderColor: ratingBorderColor,
-                    foregroundColor: ratingForegroundColor,
-                    level: Int(starRating.level),
+                    backgroundColor: effectiveBackgroundColor,
+                    borderColor: effectiveBorderColor,
+                    foregroundColor: effectiveForegroundColor,
+                    level: effectiveLevel,
+                    displayText: effectiveDisplayText,
                     action: { [weak self] in
-                        guard let self, let peer = self.peer, let currentStarRating = self.currentStarRating else {
+                        guard let self, let peer = self.peer else {
                             return
+                        }
+                        let isCustomRatingInfoEnabled = peer.id == self.context.account.peerId && GuGramSettings.shared.isCustomRatingInfoEnabled
+                        let nextLevelOverride: Int32?
+                        let ratingForScreen: TelegramStarRating
+                        let pendingForScreen: TelegramStarPendingRating?
+                        if isCustomRatingInfoEnabled {
+                            let currentStars = GuGramSettings.shared.customRatingInfoCurrentStars
+                            let nextStarsRaw = GuGramSettings.shared.customRatingInfoNextStars
+                            let currentStarsInfinity = GuGramSettings.shared.customRatingInfoCurrentStarsInfinity
+                            let nextStarsInfinity = GuGramSettings.shared.customRatingInfoNextStarsInfinity
+                            let nextStars = nextStarsRaw >= 0 ? nextStarsRaw : nil
+                            let currentLevel = GuGramSettings.shared.customRatingInfoCurrentLevel
+                            let nextLevelRaw = GuGramSettings.shared.customRatingInfoNextLevel
+                            nextLevelOverride = nextLevelRaw > 0 ? nextLevelRaw : nil
+                            let effectiveStars: Int64 = currentStarsInfinity ? 0 : currentStars
+                            let effectiveNextStars: Int64? = nextStarsInfinity ? nil : nextStars
+                            ratingForScreen = TelegramStarRating(level: currentLevel, currentLevelStars: 0, stars: effectiveStars, nextLevelStars: effectiveNextStars)
+                            pendingForScreen = nil
+                        } else {
+                            nextLevelOverride = nil
+                            ratingForScreen = self.currentStarRating ?? TelegramStarRating(level: Int32(effectiveLevel), currentLevelStars: 0, stars: 0, nextLevelStars: nil)
+                            pendingForScreen = self.currentPendingStarRating
                         }
                         self.controller?.push(ProfileLevelInfoScreen(
                             context: self.context,
                             peer: EnginePeer(peer),
-                            starRating: currentStarRating,
-                            pendingStarRating: self.currentPendingStarRating,
-                            customTheme: self.presentationData?.theme
+                            starRating: ratingForScreen,
+                            pendingStarRating: pendingForScreen,
+                            customTheme: self.presentationData?.theme,
+                            nextLevelOverride: nextLevelOverride,
+                            currentStarsInfinity: isCustomRatingInfoEnabled ? GuGramSettings.shared.customRatingInfoCurrentStarsInfinity : false,
+                            nextStarsInfinity: isCustomRatingInfoEnabled ? GuGramSettings.shared.customRatingInfoNextStarsInfinity : false,
+                            currentLevelInfinity: isCustomRatingInfoEnabled ? GuGramSettings.shared.customRatingInfoCurrentLevelInfinity : false,
+                            nextLevelInfinity: isCustomRatingInfoEnabled ? GuGramSettings.shared.customRatingInfoNextLevelInfinity : false
                         ))
                     },
                     debugLevel: self.context.sharedContext.immediateExperimentalUISettings.debugRatingLayout
@@ -2972,4 +3088,3 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         transition.updateAnchorPoint(layer: self.avatarListNode.maskNode.layer, anchorPoint: maskAnchorPoint)
     }
 }
-

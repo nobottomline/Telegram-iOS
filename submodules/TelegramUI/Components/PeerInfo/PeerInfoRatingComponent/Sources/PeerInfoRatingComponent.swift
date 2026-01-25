@@ -116,6 +116,7 @@ public final class PeerInfoRatingComponent: Component {
     let borderColor: UIColor
     let foregroundColor: UIColor
     let level: Int
+    let displayText: String?
     let action: () -> Void
     let debugLevel: Bool
     
@@ -124,6 +125,7 @@ public final class PeerInfoRatingComponent: Component {
         borderColor: UIColor,
         foregroundColor: UIColor,
         level: Int,
+        displayText: String? = nil,
         action: @escaping () -> Void,
         debugLevel: Bool = false
     ) {
@@ -131,6 +133,7 @@ public final class PeerInfoRatingComponent: Component {
         self.borderColor = borderColor
         self.foregroundColor = foregroundColor
         self.level = level
+        self.displayText = displayText
         self.action = action
         self.debugLevel = debugLevel
     }
@@ -146,6 +149,9 @@ public final class PeerInfoRatingComponent: Component {
             return false
         }
         if lhs.level != rhs.level {
+            return false
+        }
+        if lhs.displayText != rhs.displayText {
             return false
         }
         if lhs.debugLevel != rhs.debugLevel {
@@ -220,17 +226,20 @@ public final class PeerInfoRatingComponent: Component {
             self.state = state
             
             let level: Int
+            let displayText: String
             if component.debugLevel {
                 level = self.debugLevel
+                displayText = "\(level)"
             } else {
                 level = component.level
+                displayText = component.displayText ?? "\(level)"
             }
             
             let iconSize = CGSize(width: 26.0, height: 26.0)
             
             let alwaysRedraw: Bool = component.debugLevel
             
-            if previousComponent?.level != level || previousComponent?.borderColor != component.borderColor || previousComponent?.foregroundColor != component.foregroundColor || previousComponent?.backgroundColor != component.backgroundColor || alwaysRedraw {
+            if previousComponent?.level != level || previousComponent?.displayText != component.displayText || previousComponent?.borderColor != component.borderColor || previousComponent?.foregroundColor != component.foregroundColor || previousComponent?.backgroundColor != component.backgroundColor || alwaysRedraw {
                 let weight: CGFloat = UIFont.Weight.semibold.rawValue
                 let width: CGFloat = -0.1
                 
@@ -262,7 +271,7 @@ public final class PeerInfoRatingComponent: Component {
                     font = UIFont(descriptor: descriptor, size: 10.0)
                 }
                 
-                let attributedText = NSAttributedString(string: "\(level)", attributes: [
+                let attributedText = NSAttributedString(string: displayText, attributes: [
                     NSAttributedString.Key.font: font,
                     NSAttributedString.Key.foregroundColor: component.foregroundColor
                 ])
@@ -385,20 +394,26 @@ public final class PeerInfoRatingComponent: Component {
                     
                     if let textLayout {
                         let titleScale: CGFloat
-                        if level < 0 {
-                            if abs(level) < 10 {
+                        if let numericValue = Int(displayText) {
+                            if numericValue < 0 {
+                                if abs(numericValue) < 10 {
+                                    titleScale = 0.8
+                                } else if abs(numericValue) < 100 {
+                                    titleScale = 0.6
+                                } else {
+                                    titleScale = 0.4
+                                }
+                            } else if numericValue < 10 {
+                                titleScale = 1.0
+                            } else if numericValue < 100 {
                                 titleScale = 0.8
-                            } else if abs(level) < 100 {
-                                titleScale = 0.6
                             } else {
-                                titleScale = 0.4
+                                titleScale = 0.6
                             }
-                        } else if level < 10 {
-                            titleScale = 1.0
-                        } else if level < 100 {
+                        } else if displayText.count > 1 {
                             titleScale = 0.8
                         } else {
-                            titleScale = 0.6
+                            titleScale = 1.0
                         }
                         
                         let textFrame = CGRect(origin: CGPoint(x: (size.width - textLayout.size.width) * 0.5, y: (size.height - textLayout.size.height) * 0.5), size: textLayout.size)
@@ -411,8 +426,8 @@ public final class PeerInfoRatingComponent: Component {
                         var drawPoint: CGPoint
                         drawPoint = textFrame.origin
                         
-                        if level >= 1 && level <= 99 {
-                            let numberOffset = numberOffsets[level - 1]
+                        if let numericValue = Int(displayText), numericValue >= 1, numericValue <= 99 {
+                            let numberOffset = numberOffsets[numericValue - 1]
                             drawPoint.x += numberOffset.x
                             drawPoint.y += numberOffset.y
                         } else {
