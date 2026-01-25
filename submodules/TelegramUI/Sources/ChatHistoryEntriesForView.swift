@@ -325,7 +325,6 @@ func chatHistoryEntriesForView(
     }
 
     // MARK: GuGram Deleted Messages Filtering
-    
     if !GuGramSettings.shared.isDeletedMessagesEnabled {
         var filteredEntries: [ChatHistoryEntry] = []
         for entry in entries {
@@ -338,7 +337,6 @@ func chatHistoryEntriesForView(
         }
         entries = filteredEntries
     }
-    
 
     // MARK: GuGram Edit History Inline Expansion
     if GuGramSettings.shared.isEditedMessagesEnabled && !associatedData.expandedEditHistoryMessageIds.isEmpty {
@@ -349,16 +347,18 @@ func chatHistoryEntriesForView(
                 let editHistory = message.gugramAttribute.editHistory
                 if !editHistory.isEmpty && associatedData.expandedEditHistoryMessageIds.contains(message.id) {
                     var entriesToInsert: [ChatHistoryEntry] = []
-                    // Insert edit history entries in reverse chronological order (newest first)
-                    for (index, historyEntry) in editHistory.enumerated().reversed() {
+                    
+                    let maxInline = 3
+                    let totalCount = editHistory.count
+                    let visibleCount = min(totalCount, maxInline)
+                    // We want the FIRST (oldest) 'visibleCount' items.
+                    let historyToShow = editHistory.prefix(visibleCount)
+                    
+                    for (index, historyEntry) in historyToShow.enumerated().reversed() {
                         // Create synthetic message for edit history entry
-                        // Use a large ID to avoid conflicts with real messages
-                        // Format: 1000000000 + original_id_subset * 10 + index
                         let safeId = Int64(message.id.id)
                         let syntheticId = Int32(1000000000) + Int32((abs(safeId) % 100000) * 10) + Int32(index + 1)
                         
-                        // Use bitwise NOT to ensure stableId is in a completely different range from real messages
-                        // This prevents collisions in the UI diffing algorithm (MergeLists)
                         let syntheticStableId = ~message.stableId ^ UInt32(index + 1)
                         
                         let syntheticMessage = Message(
@@ -369,7 +369,7 @@ func chatHistoryEntriesForView(
                             groupingKey: nil,
                             groupInfo: nil,
                             threadId: message.threadId,
-                            timestamp: message.timestamp, // Maintain list sorting
+                            timestamp: message.timestamp,
                             flags: message.flags,
                             tags: message.tags,
                             globalTags: message.globalTags,
@@ -387,14 +387,61 @@ func chatHistoryEntriesForView(
                             associatedMessages: SimpleDictionary(),
                             associatedMessageIds: [],
                             associatedMedia: [:],
-                                                            associatedThreadInfo: nil,
-                                                        associatedStories: [:]
-                                                    )
-                            
-                                                    entriesToInsert.append(.MessageEntry(syntheticMessage, presentationData, isRead, nil, selection, ChatMessageEntryAttributes()))
-                                                }
-                                                
-                                                if reverse {                        // In a reversed list (Descending order), newer IDs (Synthetic) must come BEFORE older IDs (Original)
+                            associatedThreadInfo: nil,
+                            associatedStories: [:]
+                        )
+
+                        entriesToInsert.append(.MessageEntry(syntheticMessage, presentationData, isRead, nil, selection, ChatMessageEntryAttributes()))
+                    }
+                    
+                    if totalCount > maxInline {
+                        let remaining = totalCount - maxInline
+                        let buttonText = "Show \(remaining) more edits"
+                        
+                        let buttonIndex = maxInline + 1
+                        let safeId = Int64(message.id.id)
+                        let syntheticId = Int32(1000000000) + Int32((abs(safeId) % 100000) * 10) + Int32(buttonIndex)
+                        let syntheticStableId = ~message.stableId ^ UInt32(buttonIndex)
+                        
+                        // Create a link entity to make it look like a button and be clickable
+                        let entities = [MessageTextEntity(range: 0 ..< buttonText.count, type: .TextUrl(url: "gugram://edit_history?id=\(message.id.id)"))]
+                        
+                        let buttonMessage = Message(
+                            stableId: syntheticStableId,
+                            stableVersion: 0,
+                            id: MessageId(peerId: message.id.peerId, namespace: Namespaces.Message.Local, id: syntheticId),
+                            globallyUniqueId: nil,
+                            groupingKey: nil,
+                            groupInfo: nil,
+                            threadId: message.threadId,
+                            timestamp: message.timestamp,
+                            flags: message.flags,
+                            tags: message.tags,
+                            globalTags: message.globalTags,
+                            localTags: message.localTags,
+                            customTags: message.customTags,
+                            forwardInfo: message.forwardInfo,
+                            author: message.author,
+                            text: buttonText,
+                            attributes: [
+                                GuGramEditHistoryMessageAttribute(originMessageId: message.id, editTimestamp: 0, isButton: true),
+                                TextEntitiesMessageAttribute(entities: entities)
+                            ],
+                            media: [],
+                            peers: message.peers,
+                            associatedMessages: SimpleDictionary(),
+                            associatedMessageIds: [],
+                            associatedMedia: [:],
+                            associatedThreadInfo: nil,
+                            associatedStories: [:]
+                        )
+                        
+                        // Button should be closest to the original message
+                        entriesToInsert.insert(.MessageEntry(buttonMessage, presentationData, isRead, nil, selection, ChatMessageEntryAttributes()), at: 0)
+                    }
+                    
+                    if reverse {
+                        // In a reversed list (Descending order), newer IDs (Synthetic) must come BEFORE older IDs (Original)
                         expandedEntries.append(contentsOf: entriesToInsert)
                         expandedEntries.append(entry)
                     } else {

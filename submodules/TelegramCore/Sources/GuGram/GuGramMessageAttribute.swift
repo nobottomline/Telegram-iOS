@@ -72,14 +72,16 @@ public class GuGramMessageAttribute: MessageAttribute {
 public final class GuGramEditHistoryMessageAttribute: MessageAttribute {
     public let originMessageId: MessageId
     public let editTimestamp: Int32
+    public let isButton: Bool
     
     public var associatedMessageIds: [MessageId] {
         return [self.originMessageId]
     }
     
-    public init(originMessageId: MessageId, editTimestamp: Int32) {
+    public init(originMessageId: MessageId, editTimestamp: Int32, isButton: Bool = false) {
         self.originMessageId = originMessageId
         self.editTimestamp = editTimestamp
+        self.isButton = isButton
     }
     
     public required init(decoder: PostboxDecoder) {
@@ -87,6 +89,7 @@ public final class GuGramEditHistoryMessageAttribute: MessageAttribute {
         let peerId = PeerId(decoder.decodeInt64ForKey("p", orElse: 0))
         self.originMessageId = MessageId(peerId: peerId, namespace: Int32(namespaceAndId & 0xffffffff), id: Int32((namespaceAndId >> 32) & 0xffffffff))
         self.editTimestamp = decoder.decodeInt32ForKey("d", orElse: 0)
+        self.isButton = decoder.decodeBoolForKey("b", orElse: false)
     }
     
     public func encode(_ encoder: PostboxEncoder) {
@@ -94,6 +97,7 @@ public final class GuGramEditHistoryMessageAttribute: MessageAttribute {
         encoder.encodeInt64(namespaceAndId, forKey: "i")
         encoder.encodeInt64(self.originMessageId.peerId.toInt64(), forKey: "p")
         encoder.encodeInt32(self.editTimestamp, forKey: "d")
+        encoder.encodeBool(self.isButton, forKey: "b")
     }
 }
 

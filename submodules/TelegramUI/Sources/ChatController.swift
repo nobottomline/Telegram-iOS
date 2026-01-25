@@ -831,6 +831,28 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
         }
         
         let controllerInteraction = ChatControllerInteraction(openMessage: { [weak self] message, params in
+            if let editHistoryAttribute = message.guGramEditHistoryMessageAttribute, editHistoryAttribute.isButton {
+                guard let self else { return false }
+                // We need the ORIGINAL message to show history.
+                // The button message has originMessageId. We should fetch the original message?
+                // Or just pass the button message, and let the controller handle it?
+                // The controller expects 'message' to have 'editHistory'.
+                // The button message DOES NOT have editHistory populated in the attribute?
+                // Wait, in ChatHistoryEntriesForView, I created button with:
+                // GuGramEditHistoryMessageAttribute(originMessageId: message.id, ... isButton: true)
+                // It does NOT have the full history.
+                
+                // So I need to find the original message.
+                // It should be in the history view.
+                
+                if let originalMessage = self.chatDisplayNode.historyNode.messageInCurrentHistoryView(editHistoryAttribute.originMessageId) {
+                    let controller = guGramEditHistoryController(context: self.context, message: originalMessage)
+                    self.push(controller)
+                    return true
+                }
+                return false
+            }
+            
             guard let self, self.isNodeLoaded, let message = self.chatDisplayNode.historyNode.messageInCurrentHistoryView(message.id) else {
                 return false
             }
@@ -2946,6 +2968,20 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
                 return
             }
             let url = urlData.url
+            
+            // MARK: GuGram Edit History Link
+            if url.hasPrefix("gugram://edit_history") {
+                if let components = URLComponents(string: url), let queryItems = components.queryItems, let idString = queryItems.first(where: { $0.name == "id" })?.value, let id = Int32(idString) {
+                    // Try to find the message in current history view. Assuming Cloud namespace.
+                    // If peerId is missing (e.g. replies), this might fail, but for main chat it works.
+                    if let peerId = strongSelf.chatLocation.peerId, let message = strongSelf.chatDisplayNode.historyNode.messageInCurrentHistoryView(MessageId(peerId: peerId, namespace: Namespaces.Message.Cloud, id: id)) {
+                        let controller = guGramEditHistoryController(context: strongSelf.context, message: message)
+                        strongSelf.push(controller)
+                    }
+                }
+                return
+            }
+            
             let concealed = urlData.concealed
             let message = urlData.message
             let progress = urlData.progress
