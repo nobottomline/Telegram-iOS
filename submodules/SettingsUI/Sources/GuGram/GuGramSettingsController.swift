@@ -144,6 +144,7 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
     case customRatingInfoNextLevel(PresentationTheme, String, Int32)
     case customRatingInfoCurrentLevelInfinity(PresentationTheme, String, Bool)
     case customRatingInfoNextLevelInfinity(PresentationTheme, String, Bool)
+    case hideGuGramSettingsEntry(PresentationTheme, String, Bool)
     case info(PresentationTheme, String)
     
     var section: ItemListSectionId {
@@ -160,7 +161,7 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
             return GuGramSettingsSection.ratingBadge.rawValue
         case .isCustomRatingInfoEnabled, .customRatingInfoCurrentStars, .customRatingInfoNextStars, .customRatingInfoCurrentStarsInfinity, .customRatingInfoNextStarsInfinity, .customRatingInfoCurrentLevel, .customRatingInfoNextLevel, .customRatingInfoCurrentLevelInfinity, .customRatingInfoNextLevelInfinity:
             return GuGramSettingsSection.ratingInfo.rawValue
-        case .info:
+        case .hideGuGramSettingsEntry, .info:
             return GuGramSettingsSection.about.rawValue
         }
     }
@@ -200,7 +201,8 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
         case .customRatingInfoCurrentLevel: return 4016
         case .customRatingInfoNextLevelInfinity: return 4017
         case .customRatingInfoNextLevel: return 4018
-        case .info: return 5010
+        case .hideGuGramSettingsEntry: return 5010
+        case .info: return 5011
         }
     }
     
@@ -368,6 +370,11 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
             return false
         case let .customRatingInfoNextLevelInfinity(lhsTheme, lhsText, lhsValue):
             if case let .customRatingInfoNextLevelInfinity(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .hideGuGramSettingsEntry(lhsTheme, lhsText, lhsValue):
+            if case let .hideGuGramSettingsEntry(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
                 return true
             }
             return false
@@ -547,6 +554,10 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
             return ItemListSwitchItem(presentationData: presentationData, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
                 GuGramSettings.shared.customRatingInfoNextLevelInfinity = value
             })
+        case let .hideGuGramSettingsEntry(_, text, value):
+            return ItemListSwitchItem(presentationData: presentationData, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
+                GuGramSettings.shared.hideGuGramSettingsEntry = value
+            })
         case let .info(_, text):
             return ItemListTextItem(presentationData: presentationData, text: .plain(text), sectionId: self.section)
         }
@@ -627,6 +638,7 @@ private func guGramSettingsControllerEntries(presentationData: PresentationData,
     }
 
     entries.append(.sectionHeader(presentationData.theme, "About", .about))
+    entries.append(.hideGuGramSettingsEntry(presentationData.theme, "Hide GuGram in Settings (restart to show)", state.hideGuGramSettingsEntry))
     entries.append(.info(presentationData.theme, "Local Premium unlocks client-side features like translations and icons.\n\nCustom Rating Badge: Set level 1-999 or use Infinity (∞). Optional hex color (e.g. FF5500).\n\nRating Info Screen: Set current/next reputation and levels. Use Infinity toggles for ∞. Leave Next Level empty to auto +1; leave Next Reputation empty for max."))
 
     entries.sort()

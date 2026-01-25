@@ -82,6 +82,9 @@ public final class GuGramSettings {
     private let customRatingInfoNextLevelInfinityKey = "GuGram_CustomRatingInfoNextLevelInfinity"
     private let customRatingInfoNextLevelInfinityPromise = ValuePromise<Bool>(false)
 
+    private let hideGuGramSettingsEntryKey = "GuGram_HideSettingsEntry"
+    private let hideGuGramSettingsEntryPromise = ValuePromise<Bool>(false)
+
     private let customNameKey = "GuGram_CustomName"
     private let customNamePromise = ValuePromise<String>("")
 
@@ -206,6 +209,10 @@ public final class GuGramSettings {
         return self.customRatingInfoNextLevelInfinityPromise.get()
     }
 
+    public var hideGuGramSettingsEntrySignal: Signal<Bool, NoError> {
+        return self.hideGuGramSettingsEntryPromise.get()
+    }
+
     public var customNameSignal: Signal<String, NoError> {
         return self.customNamePromise.get()
     }
@@ -257,6 +264,7 @@ public final class GuGramSettings {
         public var customRatingInfoNextLevel: Int32
         public var customRatingInfoCurrentLevelInfinity: Bool
         public var customRatingInfoNextLevelInfinity: Bool
+        public var hideGuGramSettingsEntry: Bool
         public var customName: String
         public var isCustomNameEnabled: Bool
         public var customPhoneNumber: String
@@ -295,6 +303,7 @@ public final class GuGramSettings {
             self.customRatingInfoNextLevelPromise.get(),
             self.customRatingInfoCurrentLevelInfinityPromise.get(),
             self.customRatingInfoNextLevelInfinityPromise.get(),
+            self.hideGuGramSettingsEntryPromise.get(),
             self.customNamePromise.get(),
             self.isCustomNameEnabledPromise.get(),
             self.customPhoneNumberPromise.get(),
@@ -331,12 +340,13 @@ public final class GuGramSettings {
                 customRatingInfoNextLevel: v2.15,
                 customRatingInfoCurrentLevelInfinity: v2.16,
                 customRatingInfoNextLevelInfinity: v2.17,
-                customName: v2.18,
-                isCustomNameEnabled: v2.19,
-                customPhoneNumber: v2.20,
-                isCustomPhoneNumberEnabled: v2.21,
-                isCustomAvatarEnabled: v2.22,
-                customAvatarPath: v2.23
+                hideGuGramSettingsEntry: v2.18,
+                customName: v2.19,
+                isCustomNameEnabled: v2.20,
+                customPhoneNumber: v2.21,
+                isCustomPhoneNumberEnabled: v2.22,
+                isCustomAvatarEnabled: v2.23,
+                customAvatarPath: v2.24
             )
         }
     }
@@ -612,6 +622,16 @@ public final class GuGramSettings {
         }
     }
 
+    public var hideGuGramSettingsEntry: Bool {
+        get {
+            return UserDefaults.standard.bool(forKey: hideGuGramSettingsEntryKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: hideGuGramSettingsEntryKey)
+            self.hideGuGramSettingsEntryPromise.set(newValue)
+        }
+    }
+
     public var customName: String {
         get {
             return UserDefaults.standard.string(forKey: customNameKey) ?? ""
@@ -706,6 +726,8 @@ public final class GuGramSettings {
         self.customRatingInfoNextLevelPromise.set(self.customRatingInfoNextLevel)
         self.customRatingInfoCurrentLevelInfinityPromise.set(self.customRatingInfoCurrentLevelInfinity)
         self.customRatingInfoNextLevelInfinityPromise.set(self.customRatingInfoNextLevelInfinity)
+        UserDefaults.standard.set(false, forKey: hideGuGramSettingsEntryKey)
+        self.hideGuGramSettingsEntryPromise.set(false)
         self.customNamePromise.set(self.customName)
         self.isCustomNameEnabledPromise.set(self.isCustomNameEnabled)
         self.customPhoneNumberPromise.set(self.customPhoneNumber)

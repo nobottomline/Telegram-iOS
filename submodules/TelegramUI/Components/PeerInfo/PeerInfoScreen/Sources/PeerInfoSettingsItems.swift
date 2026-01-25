@@ -198,9 +198,11 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
     items[.shortcuts]!.append(PeerInfoScreenDisclosureItem(id: 1, text: presentationData.strings.Settings_SavedMessages, icon: PresentationResourcesSettings.savedMessages, action: {
         interaction.openSettings(.savedMessages)
     }))
-    items[.shortcuts]!.append(PeerInfoScreenDisclosureItem(id: 777, text: "GuGram", icon: PresentationResourcesSettings.gugram, action: {
-        interaction.openGuGramSettings()
-    }))
+    if !GuGramSettings.shared.hideGuGramSettingsEntry {
+        items[.shortcuts]!.append(PeerInfoScreenDisclosureItem(id: 777, text: "GuGram", icon: PresentationResourcesSettings.gugram, action: {
+            interaction.openGuGramSettings()
+        }))
+    }
     items[.shortcuts]!.append(PeerInfoScreenDisclosureItem(id: 2, text: presentationData.strings.CallSettings_RecentCalls, icon: PresentationResourcesSettings.recentCalls, action: {
         interaction.openSettings(.recentCalls)
     }))
