@@ -380,9 +380,9 @@ public extension Message {
     }
     
     func isCopyProtected() -> Bool {
-        // GuGram: Always allow copy/save
-        return false
-        /*
+        if GuGramSettings.shared.isBypassCopyProtectionEnabled {
+            return false
+        }
         if self.flags.contains(.CopyProtected) {
             return true
         } else if let group = self.peers[self.id.peerId] as? TelegramGroup, group.flags.contains(.copyProtectionEnabled) {
@@ -392,7 +392,6 @@ public extension Message {
         } else {
             return false
         }
-        */
     }
     
     func isSensitiveContent(platform: String) -> Bool {

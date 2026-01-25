@@ -234,6 +234,9 @@ public extension Peer {
     }
     
     var isCopyProtectionEnabled: Bool {
+        if GuGramSettings.shared.isBypassCopyProtectionEnabled {
+            return false
+        }
         switch self {
         case let group as TelegramGroup:
             return group.flags.contains(.copyProtectionEnabled)

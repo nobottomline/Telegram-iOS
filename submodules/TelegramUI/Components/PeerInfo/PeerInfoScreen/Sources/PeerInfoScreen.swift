@@ -2466,8 +2466,9 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
         self.dataDisposable = combineLatest(
             queue: Queue.mainQueue(),
             screenData,
-            self.forceIsContactPromise.get()
-        ).startStrict(next: { [weak self] data, forceIsContact in
+            self.forceIsContactPromise.get(),
+            GuGramSettings.shared.localPremiumSignal
+        ).startStrict(next: { [weak self] data, forceIsContact, _ in
             guard let strongSelf = self else {
                 return
             }

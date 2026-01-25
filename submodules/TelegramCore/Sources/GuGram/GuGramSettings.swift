@@ -18,6 +18,9 @@ public final class GuGramSettings {
     
     private let deletedMessagesKey = "gg_showDeletedMessages"
     private let deletedMessagesPromise = ValuePromise<Bool>(false)
+
+    private let bypassCopyProtectionKey = "GuGram_BypassCopyProtection"
+    private let bypassCopyProtectionPromise = ValuePromise<Bool>(false)
     
     public var ghostModeSignal: Signal<Bool, NoError> {
         return self.ghostModePromise.get()
@@ -37,6 +40,10 @@ public final class GuGramSettings {
     
     public var deletedMessagesSignal: Signal<Bool, NoError> {
         return self.deletedMessagesPromise.get()
+    }
+
+    public var bypassCopyProtectionSignal: Signal<Bool, NoError> {
+        return self.bypassCopyProtectionPromise.get()
     }
     
     public var isGhostModeEnabled: Bool {
@@ -94,6 +101,16 @@ public final class GuGramSettings {
             self.deletedMessagesPromise.set(newValue)
         }
     }
+
+    public var isBypassCopyProtectionEnabled: Bool {
+        get {
+            return UserDefaults.standard.bool(forKey: bypassCopyProtectionKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: bypassCopyProtectionKey)
+            self.bypassCopyProtectionPromise.set(newValue)
+        }
+    }
     
     init() {
         self.ghostModePromise.set(self.isGhostModeEnabled)
@@ -101,5 +118,6 @@ public final class GuGramSettings {
         self.hideStoriesPromise.set(self.isHideStoriesEnabled)
         self.editedMessagesPromise.set(self.isEditedMessagesEnabled)
         self.deletedMessagesPromise.set(self.isDeletedMessagesEnabled)
+        self.bypassCopyProtectionPromise.set(self.isBypassCopyProtectionEnabled)
     }
 }
