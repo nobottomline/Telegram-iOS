@@ -566,6 +566,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                     GuGramSettings.shared.customRatingBadgeLevelSignal,
                     GuGramSettings.shared.customRatingBadgeColorSignal,
                     GuGramSettings.shared.customRatingBadgeInfinitySignal,
+                    GuGramSettings.shared.customRatingBadgeShapeStyleSignal,
+                    GuGramSettings.shared.customRatingBadgeShapeLevelSignal,
                     GuGramSettings.shared.isCustomRatingInfoEnabledSignal,
                     GuGramSettings.shared.customRatingInfoCurrentStarsSignal,
                     GuGramSettings.shared.customRatingInfoNextStarsSignal,
@@ -2177,6 +2179,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         let isRatingBadgeHiddenByGuGram = isOwnProfile && GuGramSettings.shared.isHideRatingBadgeEnabled
         let isCustomRatingBadgeEnabled = isOwnProfile && GuGramSettings.shared.isCustomRatingBadgeEnabled
         let isCustomRatingBadgeInfinity = isOwnProfile && GuGramSettings.shared.customRatingBadgeInfinity
+        let customRatingBadgeShapeStyle = GuGramSettings.shared.customRatingBadgeShapeStyle
+        let customRatingBadgeShapeLevel = GuGramSettings.shared.customRatingBadgeShapeLevel
 
         // Determine the effective rating to display
         let effectiveStarRating: TelegramStarRating?
@@ -2185,6 +2189,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         let effectiveBackgroundColor: UIColor
         let effectiveBorderColor: UIColor
         let effectiveForegroundColor: UIColor
+        let effectiveShapeStyle: Int32
+        let effectiveShapeLevel: Int
 
         if isCustomRatingBadgeEnabled {
             let customLevel = GuGramSettings.shared.customRatingBadgeLevel
@@ -2198,6 +2204,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 effectiveLevel = Int(customLevel)
                 effectiveStarRating = TelegramStarRating(level: customLevel, currentLevelStars: 0, stars: 0, nextLevelStars: nil)
             }
+            effectiveShapeStyle = customRatingBadgeShapeStyle
+            effectiveShapeLevel = Int(customRatingBadgeShapeLevel)
 
             if customColorValue != 0 {
                 let customColor = UIColor(rgb: UInt32(customColorValue))
@@ -2216,6 +2224,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             effectiveBackgroundColor = ratingBackgroundColor
             effectiveBorderColor = ratingBorderColor
             effectiveForegroundColor = ratingForegroundColor
+            effectiveShapeStyle = 0
+            effectiveShapeLevel = 0
         } else {
             effectiveStarRating = nil
             effectiveLevel = 0
@@ -2223,6 +2233,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             effectiveBackgroundColor = ratingBackgroundColor
             effectiveBorderColor = ratingBorderColor
             effectiveForegroundColor = ratingForegroundColor
+            effectiveShapeStyle = 0
+            effectiveShapeLevel = 0
         }
 
         let shouldShowRatingBadge = (effectiveStarRating != nil || isCustomRatingBadgeEnabled) && !isRatingBadgeHiddenByGuGram
@@ -2246,6 +2258,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                     foregroundColor: effectiveForegroundColor,
                     level: effectiveLevel,
                     displayText: effectiveDisplayText,
+                    shapeStyle: effectiveShapeStyle,
+                    shapeLevel: effectiveShapeLevel,
                     action: { [weak self] in
                         guard let self, let peer = self.peer else {
                             return

@@ -16,11 +16,13 @@ private final class GuGramSettingsControllerArguments {
     let context: AccountContext
     let updateCustomUsername: (String) -> Void
     let selectCustomAvatar: () -> Void
+    let selectRatingBadgeShape: () -> Void
     
-    init(context: AccountContext, updateCustomUsername: @escaping (String) -> Void, selectCustomAvatar: @escaping () -> Void) {
+    init(context: AccountContext, updateCustomUsername: @escaping (String) -> Void, selectCustomAvatar: @escaping () -> Void, selectRatingBadgeShape: @escaping () -> Void) {
         self.context = context
         self.updateCustomUsername = updateCustomUsername
         self.selectCustomAvatar = selectCustomAvatar
+        self.selectRatingBadgeShape = selectRatingBadgeShape
     }
 }
 
@@ -134,6 +136,8 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
     case isCustomRatingBadgeEnabled(PresentationTheme, String, Bool)
     case customRatingBadgeLevel(PresentationTheme, String, Int32)
     case customRatingBadgeInfinity(PresentationTheme, String, Bool)
+    case customRatingBadgeShape(PresentationTheme, String, Int32)
+    case customRatingBadgeShapeLevel(PresentationTheme, String, Int32)
     case customRatingBadgeColor(PresentationTheme, String, Int32)
     case isCustomRatingInfoEnabled(PresentationTheme, String, Bool)
     case customRatingInfoCurrentStars(PresentationTheme, String, Int64)
@@ -157,7 +161,7 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
             return GuGramSettingsSection.privacy.rawValue
         case .customUsername, .isCustomUsernameEnabled, .customName, .isCustomNameEnabled, .customPhoneNumber, .isCustomPhoneNumberEnabled, .isCustomAvatarEnabled, .selectCustomAvatar:
             return GuGramSettingsSection.identity.rawValue
-        case .hideRatingBadge, .isCustomRatingBadgeEnabled, .customRatingBadgeLevel, .customRatingBadgeInfinity, .customRatingBadgeColor:
+        case .hideRatingBadge, .isCustomRatingBadgeEnabled, .customRatingBadgeLevel, .customRatingBadgeInfinity, .customRatingBadgeShape, .customRatingBadgeShapeLevel, .customRatingBadgeColor:
             return GuGramSettingsSection.ratingBadge.rawValue
         case .isCustomRatingInfoEnabled, .customRatingInfoCurrentStars, .customRatingInfoNextStars, .customRatingInfoCurrentStarsInfinity, .customRatingInfoNextStarsInfinity, .customRatingInfoCurrentLevel, .customRatingInfoNextLevel, .customRatingInfoCurrentLevelInfinity, .customRatingInfoNextLevelInfinity:
             return GuGramSettingsSection.ratingInfo.rawValue
@@ -191,7 +195,9 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
         case .isCustomRatingBadgeEnabled: return 3011
         case .customRatingBadgeInfinity: return 3012
         case .customRatingBadgeLevel: return 3013
-        case .customRatingBadgeColor: return 3014
+        case .customRatingBadgeShape: return 3014
+        case .customRatingBadgeShapeLevel: return 3015
+        case .customRatingBadgeColor: return 3016
         case .isCustomRatingInfoEnabled: return 4010
         case .customRatingInfoCurrentStarsInfinity: return 4011
         case .customRatingInfoCurrentStars: return 4012
@@ -320,6 +326,16 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
             return false
         case let .customRatingBadgeInfinity(lhsTheme, lhsText, lhsValue):
             if case let .customRatingBadgeInfinity(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .customRatingBadgeShape(lhsTheme, lhsText, lhsValue):
+            if case let .customRatingBadgeShape(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .customRatingBadgeShapeLevel(lhsTheme, lhsText, lhsValue):
+            if case let .customRatingBadgeShapeLevel(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
                 return true
             }
             return false
@@ -489,6 +505,18 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
             return ItemListSwitchItem(presentationData: presentationData, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
                 GuGramSettings.shared.customRatingBadgeInfinity = value
             })
+        case let .customRatingBadgeShape(_, text, value):
+            let arguments = arguments as! GuGramSettingsControllerArguments
+            return ItemListDisclosureItem(presentationData: presentationData, title: text, label: ratingBadgeShapeTitle(value), sectionId: self.section, style: .blocks, action: {
+                arguments.selectRatingBadgeShape()
+            })
+        case let .customRatingBadgeShapeLevel(_, text, value):
+            return ItemListSingleLineInputItem(presentationData: presentationData, title: NSAttributedString(string: text, font: Font.regular(presentationData.fontSize.itemListBaseFontSize), textColor: presentationData.theme.list.itemPrimaryTextColor), text: "\(value)", placeholder: "1-90 (shape)", type: .number, sectionId: self.section, textUpdated: { text in
+                if let intValue = Int32(text), intValue >= 1 {
+                    GuGramSettings.shared.customRatingBadgeShapeLevel = intValue
+                }
+            }, action: {
+            })
         case let .customRatingBadgeColor(_, text, value):
             let hexString = value != 0 ? String(format: "%06X", value) : ""
             return ItemListSingleLineInputItem(presentationData: presentationData, title: NSAttributedString(string: text, font: Font.regular(presentationData.fontSize.itemListBaseFontSize), textColor: presentationData.theme.list.itemPrimaryTextColor), text: hexString, placeholder: "FF5500 (hex color)", type: .regular(capitalization: true, autocorrection: false), sectionId: self.section, textUpdated: { text in
@@ -564,6 +592,25 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
     }
 }
 
+private func ratingBadgeShapeTitle(_ style: Int32) -> String {
+    switch style {
+    case 1:
+        return "Fixed Level"
+    case 2:
+        return "Circle"
+    case 3:
+        return "Hex"
+    case 4:
+        return "Shield"
+    case 5:
+        return "Diamond"
+    case 6:
+        return "Star"
+    default:
+        return "Auto (By Level)"
+    }
+}
+
 private func guGramSettingsControllerEntries(presentationData: PresentationData, state: GuGramSettings.State) -> [GuGramSettingsEntry] {
     var entries: [GuGramSettingsEntry] = []
     
@@ -611,6 +658,10 @@ private func guGramSettingsControllerEntries(presentationData: PresentationData,
         if !state.customRatingBadgeInfinity {
             entries.append(.customRatingBadgeLevel(presentationData.theme, "Level (1-999)", state.customRatingBadgeLevel))
         }
+        entries.append(.customRatingBadgeShape(presentationData.theme, "Shape", state.customRatingBadgeShapeStyle))
+        if state.customRatingBadgeShapeStyle == 1 {
+            entries.append(.customRatingBadgeShapeLevel(presentationData.theme, "Shape Level", state.customRatingBadgeShapeLevel))
+        }
         entries.append(.customRatingBadgeColor(presentationData.theme, "Color (hex)", state.customRatingBadgeColor))
     }
 
@@ -639,7 +690,7 @@ private func guGramSettingsControllerEntries(presentationData: PresentationData,
 
     entries.append(.sectionHeader(presentationData.theme, "About", .about))
     entries.append(.hideGuGramSettingsEntry(presentationData.theme, "Hide GuGram in Settings (restart to show)", state.hideGuGramSettingsEntry))
-    entries.append(.info(presentationData.theme, "Local Premium unlocks client-side features like translations and icons.\n\nCustom Rating Badge: Set level 1-999 or use Infinity (∞). Optional hex color (e.g. FF5500).\n\nRating Info Screen: Set current/next reputation and levels. Use Infinity toggles for ∞. Leave Next Level empty to auto +1; leave Next Reputation empty for max."))
+    entries.append(.info(presentationData.theme, "Local Premium unlocks client-side features like translations and icons.\n\nCustom Rating Badge: Set level 1-999 or use Infinity (∞). Choose a shape (Auto uses your level, Fixed Level locks a shape). Optional hex color (e.g. FF5500).\n\nRating Info Screen: Set current/next reputation and levels. Use Infinity toggles for ∞. Leave Next Level empty to auto +1; leave Next Reputation empty for max."))
 
     entries.sort()
     
@@ -719,6 +770,32 @@ public func guGramSettingsController(context: AccountContext) -> ViewController 
                 GuGramSettings.shared.isCustomAvatarEnabled = false
             })
         ]), ActionSheetItemGroup(items: [
+            ActionSheetButtonItem(title: presentationData.strings.Common_Cancel, color: .accent, action: { [weak actionSheet] in
+                actionSheet?.dismissAnimated()
+            })
+        ])])
+        context.sharedContext.mainWindow?.present(actionSheet, on: .root)
+    }, selectRatingBadgeShape: {
+        let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+        let actionSheet = ActionSheetController(presentationData: presentationData)
+        let currentStyle = GuGramSettings.shared.customRatingBadgeShapeStyle
+        let options: [(Int32, String)] = [
+            (0, "Auto (By Level)"),
+            (1, "Fixed Level"),
+            (2, "Circle"),
+            (3, "Hex"),
+            (4, "Shield"),
+            (5, "Diamond"),
+            (6, "Star")
+        ]
+        let items = options.map { style, title in
+            let label = style == currentStyle ? "\(title) ✓" : title
+            return ActionSheetButtonItem(title: label, color: .accent, action: { [weak actionSheet] in
+                actionSheet?.dismissAnimated()
+                GuGramSettings.shared.customRatingBadgeShapeStyle = style
+            })
+        }
+        actionSheet.setItemGroups([ActionSheetItemGroup(items: items), ActionSheetItemGroup(items: [
             ActionSheetButtonItem(title: presentationData.strings.Common_Cancel, color: .accent, action: { [weak actionSheet] in
                 actionSheet?.dismissAnimated()
             })

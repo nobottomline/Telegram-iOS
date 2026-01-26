@@ -111,12 +111,93 @@ private func generateNumberOffsets() -> [CGPoint] {
 
 let numberOffsets: [CGPoint] = generateNumberOffsets()
 
+private enum RatingBadgeShapeStyle: Int32 {
+    case auto = 0
+    case fixedLevel = 1
+    case circle = 2
+    case hex = 3
+    case shield = 4
+    case diamond = 5
+    case star = 6
+    
+    var isCustomShape: Bool {
+        return self.rawValue >= RatingBadgeShapeStyle.circle.rawValue
+    }
+}
+
+private func ratingBadgeShapePath(style: RatingBadgeShapeStyle, rect: CGRect) -> UIBezierPath {
+    switch style {
+    case .circle:
+        return UIBezierPath(ovalIn: rect)
+    case .hex:
+        let path = UIBezierPath()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) * 0.5
+        let startAngle = -CGFloat.pi / 6.0
+        for index in 0 ..< 6 {
+            let angle = startAngle + CGFloat(index) * (CGFloat.pi / 3.0)
+            let point = CGPoint(x: center.x + CGFloat(cos(Double(angle))) * radius, y: center.y + CGFloat(sin(Double(angle))) * radius)
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        path.close()
+        return path
+    case .shield:
+        let path = UIBezierPath()
+        let topInset = rect.height * 0.06
+        let sideInset = rect.width * 0.12
+        let midY = rect.minY + rect.height * 0.38
+        let bottom = rect.maxY
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.minX + sideInset, y: rect.minY + topInset))
+        path.addLine(to: CGPoint(x: rect.minX + sideInset * 0.6, y: midY))
+        path.addQuadCurve(to: CGPoint(x: rect.midX, y: bottom), controlPoint: CGPoint(x: rect.minX + rect.width * 0.2, y: rect.maxY - rect.height * 0.08))
+        path.addQuadCurve(to: CGPoint(x: rect.maxX - sideInset * 0.6, y: midY), controlPoint: CGPoint(x: rect.maxX - rect.width * 0.2, y: rect.maxY - rect.height * 0.08))
+        path.addLine(to: CGPoint(x: rect.maxX - sideInset, y: rect.minY + topInset))
+        path.close()
+        return path
+    case .diamond:
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.midY))
+        path.close()
+        return path
+    case .star:
+        let path = UIBezierPath()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let outerRadius = min(rect.width, rect.height) * 0.5
+        let innerRadius = outerRadius * 0.45
+        let startAngle = -CGFloat.pi / 2.0
+        for index in 0 ..< 10 {
+            let radius = index.isMultiple(of: 2) ? outerRadius : innerRadius
+            let angle = startAngle + CGFloat(index) * (CGFloat.pi / 5.0)
+            let point = CGPoint(x: center.x + CGFloat(cos(Double(angle))) * radius, y: center.y + CGFloat(sin(Double(angle))) * radius)
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        path.close()
+        return path
+    default:
+        return UIBezierPath(ovalIn: rect)
+    }
+}
+
 public final class PeerInfoRatingComponent: Component {
     let backgroundColor: UIColor
     let borderColor: UIColor
     let foregroundColor: UIColor
     let level: Int
     let displayText: String?
+    let shapeStyle: Int32
+    let shapeLevel: Int
     let action: () -> Void
     let debugLevel: Bool
     
@@ -126,6 +207,8 @@ public final class PeerInfoRatingComponent: Component {
         foregroundColor: UIColor,
         level: Int,
         displayText: String? = nil,
+        shapeStyle: Int32 = 0,
+        shapeLevel: Int = 10,
         action: @escaping () -> Void,
         debugLevel: Bool = false
     ) {
@@ -134,6 +217,8 @@ public final class PeerInfoRatingComponent: Component {
         self.foregroundColor = foregroundColor
         self.level = level
         self.displayText = displayText
+        self.shapeStyle = shapeStyle
+        self.shapeLevel = shapeLevel
         self.action = action
         self.debugLevel = debugLevel
     }
@@ -152,6 +237,12 @@ public final class PeerInfoRatingComponent: Component {
             return false
         }
         if lhs.displayText != rhs.displayText {
+            return false
+        }
+        if lhs.shapeStyle != rhs.shapeStyle {
+            return false
+        }
+        if lhs.shapeLevel != rhs.shapeLevel {
             return false
         }
         if lhs.debugLevel != rhs.debugLevel {
@@ -238,8 +329,13 @@ public final class PeerInfoRatingComponent: Component {
             let iconSize = CGSize(width: 26.0, height: 26.0)
             
             let alwaysRedraw: Bool = component.debugLevel
+            let shapeStyle = RatingBadgeShapeStyle(rawValue: component.shapeStyle) ?? .auto
+            let shapeLevel = max(1, component.shapeLevel)
+            let usesCustomShape = shapeStyle.isCustomShape
+            let shouldShowWarning = shapeStyle == .auto && level < 0
+            let shapeSourceLevel = shapeStyle == .fixedLevel ? shapeLevel : level
             
-            if previousComponent?.level != level || previousComponent?.displayText != component.displayText || previousComponent?.borderColor != component.borderColor || previousComponent?.foregroundColor != component.foregroundColor || previousComponent?.backgroundColor != component.backgroundColor || alwaysRedraw {
+            if previousComponent?.level != level || previousComponent?.displayText != component.displayText || previousComponent?.borderColor != component.borderColor || previousComponent?.foregroundColor != component.foregroundColor || previousComponent?.backgroundColor != component.backgroundColor || previousComponent?.shapeStyle != component.shapeStyle || previousComponent?.shapeLevel != component.shapeLevel || alwaysRedraw {
                 let weight: CGFloat = UIFont.Weight.semibold.rawValue
                 let width: CGFloat = -0.1
                 
@@ -320,12 +416,12 @@ public final class PeerInfoRatingComponent: Component {
                 }
                 
                 let levelIndex: Int
-                if level < 0 {
+                if shapeSourceLevel < 0 {
                     levelIndex = 1
-                } else if level <= 10 {
-                    levelIndex = max(1, level)
-                } else if level <= 90 {
-                    levelIndex = (level / 10) * 10
+                } else if shapeSourceLevel <= 10 {
+                    levelIndex = max(1, shapeSourceLevel)
+                } else if shapeSourceLevel <= 90 {
+                    levelIndex = (shapeSourceLevel / 10) * 10
                 } else {
                     levelIndex = 90
                 }
@@ -347,7 +443,18 @@ public final class PeerInfoRatingComponent: Component {
                     
                     context.clear(CGRect(origin: CGPoint(), size: size))
                     
-                    if level < 0 {
+                    if usesCustomShape {
+                        let borderWidth: CGFloat = 1.5
+                        let inset = borderWidth * 0.5
+                        let path = ratingBadgeShapePath(style: shapeStyle, rect: CGRect(origin: .zero, size: size).insetBy(dx: inset, dy: inset))
+                        context.setStrokeColor(component.borderColor.cgColor)
+                        context.setLineWidth(borderWidth)
+                        context.addPath(path.cgPath)
+                        context.strokePath()
+                        return
+                    }
+                    
+                    if shouldShowWarning {
                         return
                     }
                     
@@ -373,16 +480,24 @@ public final class PeerInfoRatingComponent: Component {
                     
                     context.clear(CGRect(origin: CGPoint(), size: size))
                     
-                    if level < 0 {
+                    if usesCustomShape {
+                        let fillInset: CGFloat = 2.0
+                        let path = ratingBadgeShapePath(style: shapeStyle, rect: CGRect(origin: .zero, size: size).insetBy(dx: fillInset, dy: fillInset))
+                        context.setFillColor(component.backgroundColor.cgColor)
+                        context.addPath(path.cgPath)
+                        context.fillPath()
+                    } else if shouldShowWarning {
                         if let image = generateTintedImage(image: UIImage(bundleImageName: "Peer Info/InlineRatingWarning"), color: component.backgroundColor) {
                             image.draw(in: CGRect(origin: CGPoint(x: floorToScreenPixels((size.width - image.size.width) * 0.5), y: floorToScreenPixels((size.height - image.size.height) * 0.5)), size: image.size))
                         }
                         return
                     }
                     
-                    if let url = Bundle.main.url(forResource: "profile_level\(levelIndex)_inner", withExtension: "svg"), let data = try? Data(contentsOf: url) {
-                        if let image = generateTintedImage(image: drawSvgImage(data, size, nil, nil, 0.0, false), color: component.backgroundColor) {
-                            image.draw(in: CGRect(origin: CGPoint(x: 0.0, y: backgroundOffsetsY[levelIndex] ?? 0.0), size: size), blendMode: .normal, alpha: 1.0)
+                    if !usesCustomShape {
+                        if let url = Bundle.main.url(forResource: "profile_level\(levelIndex)_inner", withExtension: "svg"), let data = try? Data(contentsOf: url) {
+                            if let image = generateTintedImage(image: drawSvgImage(data, size, nil, nil, 0.0, false), color: component.backgroundColor) {
+                                image.draw(in: CGRect(origin: CGPoint(x: 0.0, y: backgroundOffsetsY[levelIndex] ?? 0.0), size: size), blendMode: .normal, alpha: 1.0)
+                            }
                         }
                     }
                     
