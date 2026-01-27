@@ -14,6 +14,448 @@ import LokiRng
 import TextFormat
 import HierarchyTrackingLayer
 
+// MARK: - GuGram Custom Gift Layer
+private final class GuGramCustomGiftLayer: SimpleLayer {
+    private let size: CGSize
+    private let customGift: GuGramSettings.GuGramCustomGift
+    private var glowing: Bool
+
+    private var currentAnimationStyle: Int32 = -1
+    private var currentAnimationIndex: Int = -1
+
+    let shadowLayer = SimpleLayer()
+    let starsLayer: CAEmitterLayer
+    let iconLayer = SimpleLayer()
+
+    init(customGift: GuGramSettings.GuGramCustomGift, size: CGSize, glowing: Bool) {
+        self.size = size
+        self.customGift = customGift
+        self.glowing = glowing
+        self.starsLayer = CAEmitterLayer()
+
+        super.init()
+        self.setupLayers()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override init(layer: Any) {
+        guard let layer = layer as? GuGramCustomGiftLayer else {
+            fatalError()
+        }
+        self.size = layer.size
+        self.customGift = layer.customGift
+        self.glowing = layer.glowing
+        self.starsLayer = CAEmitterLayer()
+        super.init()
+        self.setupLayers()
+    }
+
+    private static func generateGlowImage(size: CGSize, color: UIColor) -> UIImage? {
+        return generateImage(size, rotatedContext: { contextSize, context in
+            context.clear(CGRect(origin: .zero, size: contextSize))
+
+            var locations: [CGFloat] = [0.0, 0.3, 1.0]
+            let colors: [CGColor] = [color.withAlphaComponent(0.65).cgColor, color.withAlphaComponent(0.65).cgColor, color.withAlphaComponent(0.0).cgColor]
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            let gradient = CGGradient(colorsSpace: colorSpace, colors: colors as CFArray, locations: &locations)!
+            context.drawRadialGradient(gradient, startCenter: CGPoint(x: contextSize.width / 2.0, y: contextSize.height / 2.0), startRadius: 0.0, endCenter: CGPoint(x: contextSize.width / 2.0, y: contextSize.height / 2.0), endRadius: contextSize.width / 2.0, options: .drawsAfterEndLocation)
+        })
+    }
+
+    private func setupParticles(color: UIColor) {
+        let emitter = CAEmitterCell()
+        emitter.name = "customGiftParticle"
+        emitter.contents = UIImage(bundleImageName: "Premium/Stars/Particle")?.cgImage
+        emitter.birthRate = 6.0
+        emitter.lifetime = 2.0
+        emitter.velocity = 0.1
+        emitter.scale = (size.width / 40.0) * 0.12
+        emitter.scaleRange = 0.02
+        emitter.alphaRange = 0.1
+        emitter.emissionRange = .pi * 2.0
+
+        let staticColors: [Any] = [
+            color.withAlphaComponent(0.0).cgColor,
+            color.withAlphaComponent(0.58).cgColor,
+            color.withAlphaComponent(0.58).cgColor,
+            color.withAlphaComponent(0.0).cgColor
+        ]
+        let staticColorBehavior = CAEmitterCell.createEmitterBehavior(type: "colorOverLife")
+        staticColorBehavior.setValue(staticColors, forKey: "colors")
+        emitter.setValue([staticColorBehavior], forKey: "emitterBehaviors")
+
+        self.starsLayer.emitterCells = [emitter]
+        self.starsLayer.emitterShape = .circle
+        self.starsLayer.emitterMode = .surface
+    }
+
+    private func setupGradientIcon() {
+        let innerColor = UIColor(rgb: UInt32(bitPattern: customGift.innerColor))
+        let outerColor = UIColor(rgb: UInt32(bitPattern: customGift.outerColor))
+        let patternColor = UIColor(rgb: UInt32(bitPattern: customGift.patternColor)).withAlphaComponent(0.25)
+
+        // Create gradient background for the icon
+        let gradientImage = generateImage(size, rotatedContext: { contextSize, context in
+            context.clear(CGRect(origin: .zero, size: contextSize))
+
+            let colors: [CGColor] = [innerColor.cgColor, outerColor.cgColor]
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            var locations: [CGFloat] = [0.0, 1.0]
+            let gradient = CGGradient(colorsSpace: colorSpace, colors: colors as CFArray, locations: &locations)!
+
+            // Draw circular gradient
+            let center = CGPoint(x: contextSize.width / 2.0, y: contextSize.height / 2.0)
+            let radius = min(contextSize.width, contextSize.height) / 2.0
+
+            context.addEllipse(in: CGRect(origin: .zero, size: contextSize))
+            context.clip()
+            context.drawRadialGradient(gradient, startCenter: center, startRadius: 0.0, endCenter: center, endRadius: radius, options: [])
+
+            // Draw subtle pattern overlay
+            GuGramCustomGiftLayer.drawPatternOverlay(
+                in: context,
+                size: contextSize,
+                color: patternColor,
+                patternId: customGift.patternId
+            )
+
+            // Draw ribbon and text
+            if let ribbonText = customGift.ribbonText, !ribbonText.isEmpty {
+                let textColor = UIColor(rgb: UInt32(bitPattern: customGift.textColor))
+                let font = UIFont.systemFont(ofSize: contextSize.width * 0.36, weight: .bold)
+                let attributes: [NSAttributedString.Key: Any] = [
+                    .font: font,
+                    .foregroundColor: textColor
+                ]
+                let textSize = ribbonText.size(withAttributes: attributes)
+                let padding = contextSize.width * 0.08
+                let ribbonWidth = min(contextSize.width * 0.9, textSize.width + padding * 2.0)
+                let ribbonHeight = textSize.height + padding * 0.8
+                let ribbonRect = CGRect(
+                    x: (contextSize.width - ribbonWidth) / 2.0,
+                    y: contextSize.height * 0.62,
+                    width: ribbonWidth,
+                    height: ribbonHeight
+                )
+
+                let ribbonColor = UIColor(rgb: UInt32(bitPattern: customGift.ribbonColor))
+                let ribbonPath = UIBezierPath(roundedRect: ribbonRect, cornerRadius: ribbonRect.height * 0.3)
+                context.setFillColor(ribbonColor.cgColor)
+                context.addPath(ribbonPath.cgPath)
+                context.fillPath()
+
+                let textRect = CGRect(
+                    x: ribbonRect.midX - textSize.width / 2.0,
+                    y: ribbonRect.midY - textSize.height / 2.0,
+                    width: textSize.width,
+                    height: textSize.height
+                )
+                ribbonText.draw(in: textRect, withAttributes: attributes)
+            }
+        })
+
+        self.iconLayer.contents = gradientImage?.cgImage
+    }
+
+    override func layoutSublayers() {
+        super.layoutSublayers()
+        self.shadowLayer.frame = CGRect(origin: .zero, size: self.bounds.size).insetBy(dx: -8.0, dy: -8.0)
+        self.iconLayer.frame = CGRect(origin: .zero, size: self.bounds.size)
+
+        let side = floor(self.size.width * 1.25)
+        let starsFrame = CGSize(width: side, height: side).centered(in: CGRect(origin: .zero, size: self.bounds.size))
+        self.starsLayer.frame = starsFrame
+        self.starsLayer.emitterSize = starsFrame.size
+        self.starsLayer.emitterPosition = CGPoint(x: starsFrame.width / 2.0, y: starsFrame.height / 2.0)
+    }
+
+    func startAnimations(index: Int) {
+        self.applyAnimationStyle(style: 1, index: index, enabled: true)
+    }
+
+    func updateGlowing(_ glowing: Bool) {
+        if self.glowing != glowing {
+            self.glowing = glowing
+        }
+        self.shadowLayer.opacity = (self.glowing && customGift.glowEnabled) ? 1.0 : 0.0
+    }
+
+    func applyAnimationStyle(style: Int32, index: Int, enabled: Bool) {
+        if !enabled {
+            self.clearAnimations()
+            self.currentAnimationStyle = -1
+            self.currentAnimationIndex = -1
+            return
+        }
+        if self.currentAnimationStyle == style && self.currentAnimationIndex == index {
+            return
+        }
+        self.currentAnimationStyle = style
+        self.currentAnimationIndex = index
+        self.clearAnimations()
+
+        let beginTime = CACurrentMediaTime() + Double(index) * 0.18
+
+        switch style {
+        case 0:
+            break
+        case 2:
+            self.addOrbitAnimation(beginTime: beginTime)
+        case 3:
+            self.addPulseAnimation(beginTime: beginTime)
+        case 4:
+            self.addBounceAnimation(beginTime: beginTime)
+        default:
+            self.addFloatingAnimation(beginTime: beginTime)
+        }
+    }
+
+    private func setupLayers() {
+        let glowColor = UIColor(rgb: UInt32(bitPattern: customGift.glowColor))
+        self.shadowLayer.contents = GuGramCustomGiftLayer.generateGlowImage(size: CGSize(width: 44.0, height: 44.0), color: glowColor)?.cgImage
+        self.shadowLayer.opacity = (glowing && customGift.glowEnabled) ? 1.0 : 0.0
+
+        if customGift.particlesEnabled {
+            setupParticles(color: UIColor(rgb: UInt32(bitPattern: customGift.particleColor)))
+        } else {
+            self.starsLayer.emitterCells = nil
+        }
+
+        setupGradientIcon()
+
+        self.addSublayer(self.shadowLayer)
+        self.addSublayer(self.starsLayer)
+        self.addSublayer(self.iconLayer)
+    }
+
+    private func clearAnimations() {
+        self.removeAnimation(forKey: "hover")
+        self.removeAnimation(forKey: "orbitX")
+        self.removeAnimation(forKey: "orbitY")
+        self.removeAnimation(forKey: "bounce")
+        self.iconLayer.removeAnimation(forKey: "wiggle")
+        self.iconLayer.removeAnimation(forKey: "pulse")
+        self.shadowLayer.removeAnimation(forKey: "glow")
+        self.shadowLayer.removeAnimation(forKey: "pulse")
+    }
+
+    private func addFloatingAnimation(beginTime: CFTimeInterval) {
+        let upDistance = CGFloat.random(in: 1.0 ..< 2.0)
+        let downDistance = CGFloat.random(in: 1.0 ..< 2.0)
+        let hoverDuration = TimeInterval.random(in: 3.2 ..< 4.4)
+
+        let hoverAnimation = CABasicAnimation(keyPath: "transform.translation.y")
+        hoverAnimation.duration = hoverDuration
+        hoverAnimation.fromValue = -upDistance
+        hoverAnimation.toValue = downDistance
+        hoverAnimation.autoreverses = true
+        hoverAnimation.repeatCount = .infinity
+        hoverAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        hoverAnimation.beginTime = beginTime
+        hoverAnimation.isAdditive = true
+        self.add(hoverAnimation, forKey: "hover")
+
+        let fromRotationAngle = CGFloat.random(in: 0.02 ..< 0.045)
+        let toRotationAngle = CGFloat.random(in: 0.02 ..< 0.045)
+        let wiggleDuration = TimeInterval.random(in: 2.2 ..< 3.2)
+
+        let wiggleAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
+        wiggleAnimation.duration = wiggleDuration
+        wiggleAnimation.fromValue = -fromRotationAngle
+        wiggleAnimation.toValue = toRotationAngle
+        wiggleAnimation.autoreverses = true
+        wiggleAnimation.repeatCount = .infinity
+        wiggleAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        wiggleAnimation.beginTime = beginTime
+        wiggleAnimation.isAdditive = true
+        self.iconLayer.add(wiggleAnimation, forKey: "wiggle")
+
+        if customGift.glowEnabled {
+            let glowDuration = TimeInterval.random(in: 2.0 ..< 3.0)
+            let glowAnimation = CABasicAnimation(keyPath: "transform.scale")
+            glowAnimation.duration = glowDuration
+            glowAnimation.fromValue = 1.0
+            glowAnimation.toValue = 1.2
+            glowAnimation.autoreverses = true
+            glowAnimation.repeatCount = .infinity
+            glowAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            glowAnimation.beginTime = beginTime
+            self.shadowLayer.add(glowAnimation, forKey: "glow")
+        }
+    }
+
+    private func addOrbitAnimation(beginTime: CFTimeInterval) {
+        let radius = max(2.0, self.size.width * 0.14)
+        let steps = 48
+        var valuesX: [CGFloat] = []
+        var valuesY: [CGFloat] = []
+        valuesX.reserveCapacity(steps)
+        valuesY.reserveCapacity(steps)
+        for i in 0 ..< steps {
+            let angle = Double(2.0 * CGFloat.pi * CGFloat(i) / CGFloat(steps))
+            valuesX.append(CGFloat(cos(angle)) * radius)
+            valuesY.append(CGFloat(sin(angle)) * radius)
+        }
+
+        let duration = TimeInterval.random(in: 4.0 ..< 6.0)
+        let animationX = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        animationX.values = valuesX
+        animationX.duration = duration
+        animationX.repeatCount = .infinity
+        animationX.beginTime = beginTime
+        animationX.timingFunction = CAMediaTimingFunction(name: .linear)
+        animationX.isAdditive = true
+
+        let animationY = CAKeyframeAnimation(keyPath: "transform.translation.y")
+        animationY.values = valuesY
+        animationY.duration = duration
+        animationY.repeatCount = .infinity
+        animationY.beginTime = beginTime
+        animationY.timingFunction = CAMediaTimingFunction(name: .linear)
+        animationY.isAdditive = true
+
+        self.add(animationX, forKey: "orbitX")
+        self.add(animationY, forKey: "orbitY")
+
+        if customGift.glowEnabled {
+            let pulse = CABasicAnimation(keyPath: "opacity")
+            pulse.fromValue = 0.6
+            pulse.toValue = 1.0
+            pulse.duration = TimeInterval.random(in: 1.6 ..< 2.4)
+            pulse.autoreverses = true
+            pulse.repeatCount = .infinity
+            pulse.beginTime = beginTime
+            self.shadowLayer.add(pulse, forKey: "pulse")
+        }
+    }
+
+    private func addPulseAnimation(beginTime: CFTimeInterval) {
+        let pulseAnimation = CABasicAnimation(keyPath: "opacity")
+        pulseAnimation.fromValue = 0.6
+        pulseAnimation.toValue = 1.0
+        pulseAnimation.duration = TimeInterval.random(in: 1.4 ..< 2.1)
+        pulseAnimation.autoreverses = true
+        pulseAnimation.repeatCount = .infinity
+        pulseAnimation.beginTime = beginTime
+        self.iconLayer.add(pulseAnimation, forKey: "pulse")
+
+        if customGift.glowEnabled {
+            let glowAnimation = CABasicAnimation(keyPath: "transform.scale")
+            glowAnimation.duration = TimeInterval.random(in: 1.8 ..< 2.6)
+            glowAnimation.fromValue = 0.9
+            glowAnimation.toValue = 1.25
+            glowAnimation.autoreverses = true
+            glowAnimation.repeatCount = .infinity
+            glowAnimation.beginTime = beginTime
+            self.shadowLayer.add(glowAnimation, forKey: "glow")
+        }
+    }
+
+    private func addBounceAnimation(beginTime: CFTimeInterval) {
+        let bounceDistance = CGFloat.random(in: 3.0 ..< 5.0)
+        let bounceDuration = TimeInterval.random(in: 1.8 ..< 2.4)
+
+        let bounceAnimation = CABasicAnimation(keyPath: "transform.translation.y")
+        bounceAnimation.duration = bounceDuration
+        bounceAnimation.fromValue = -bounceDistance
+        bounceAnimation.toValue = bounceDistance
+        bounceAnimation.autoreverses = true
+        bounceAnimation.repeatCount = .infinity
+        bounceAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        bounceAnimation.beginTime = beginTime
+        bounceAnimation.isAdditive = true
+        self.add(bounceAnimation, forKey: "bounce")
+    }
+
+    private enum GiftPatternStyle {
+        case dots
+        case diagonalStripes
+        case grid
+        case waves
+    }
+
+    private static func drawPatternOverlay(in context: CGContext, size: CGSize, color: UIColor, patternId: String) {
+        let style: GiftPatternStyle
+        if patternId.contains("wave") {
+            style = .waves
+        } else if patternId.contains("circuit") || patternId.contains("diamond") || patternId.contains("crown") {
+            style = .grid
+        } else if patternId.contains("flame") || patternId.contains("leaf") {
+            style = .diagonalStripes
+        } else {
+            style = .dots
+        }
+
+        context.saveGState()
+        context.setFillColor(color.cgColor)
+        context.setStrokeColor(color.cgColor)
+
+        switch style {
+        case .dots:
+            let spacing = max(6.0, size.width * 0.22)
+            let radius = max(1.0, size.width * 0.03)
+            var y: CGFloat = spacing * 0.5
+            while y < size.height {
+                var x: CGFloat = spacing * 0.5
+                while x < size.width {
+                    context.addEllipse(in: CGRect(x: x - radius, y: y - radius, width: radius * 2.0, height: radius * 2.0))
+                    context.fillPath()
+                    x += spacing
+                }
+                y += spacing
+            }
+        case .diagonalStripes:
+            let spacing = max(6.0, size.width * 0.18)
+            context.setLineWidth(max(1.0, size.width * 0.03))
+            var offset: CGFloat = -size.height
+            while offset < size.width {
+                context.move(to: CGPoint(x: offset, y: 0.0))
+                context.addLine(to: CGPoint(x: offset + size.height, y: size.height))
+                context.strokePath()
+                offset += spacing
+            }
+        case .grid:
+            let spacing = max(6.0, size.width * 0.2)
+            context.setLineWidth(max(0.8, size.width * 0.02))
+            var x: CGFloat = spacing
+            while x < size.width {
+                context.move(to: CGPoint(x: x, y: 0.0))
+                context.addLine(to: CGPoint(x: x, y: size.height))
+                context.strokePath()
+                x += spacing
+            }
+            var y: CGFloat = spacing
+            while y < size.height {
+                context.move(to: CGPoint(x: 0.0, y: y))
+                context.addLine(to: CGPoint(x: size.width, y: y))
+                context.strokePath()
+                y += spacing
+            }
+        case .waves:
+            let waveHeight = max(1.0, size.width * 0.04)
+            let waveLength = max(8.0, size.width * 0.28)
+            context.setLineWidth(max(0.8, size.width * 0.02))
+            var y: CGFloat = waveHeight * 2.0
+            while y < size.height {
+                var x: CGFloat = 0.0
+                context.move(to: CGPoint(x: x, y: y))
+                while x <= size.width {
+                    let angle = Double((x / waveLength) * .pi * 2.0)
+                    let dy = CGFloat(sin(angle)) * waveHeight
+                    context.addLine(to: CGPoint(x: x, y: y + dy))
+                    x += 4.0
+                }
+                context.strokePath()
+                y += waveHeight * 3.0
+            }
+        }
+        context.restoreGState()
+    }
+}
+
 public final class PeerInfoGiftsCoverComponent: Component {
     public let context: AccountContext
     public let peerId: EnginePeer.Id
@@ -106,14 +548,28 @@ public final class PeerInfoGiftsCoverComponent: Component {
         private var currentSize: CGSize?
         private var component: PeerInfoGiftsCoverComponent?
         private var state: EmptyComponentState?
-                
+
         private var giftsDisposable: Disposable?
         private var gifts: [ProfileGiftsContext.State.StarGift] = []
         private var appliedGiftIds: [Int64] = []
-        
+
         private var iconLayers: [AnyHashable: GiftIconLayer] = [:]
         private var iconPositions: [PositionGenerator.Position] = []
         private let seed = UInt(Date().timeIntervalSince1970)
+
+        // GuGram: Custom gift support
+        private var gugramCustomGiftLayers: [Int: GuGramCustomGiftLayer] = [:]
+        private var gugramCustomGiftPositions: [PositionGenerator.Position] = []
+        private var gugramAppliedGift: GuGramSettings.GuGramCustomGift?
+        private var gugramAppliedCount: Int32 = 0
+        private var gugramAppliedSize: CGSize?
+        private let gugramSeed = UInt(Date().timeIntervalSince1970 + 1337)
+        private var gugramSettingsDisposable: Disposable?
+        private var isGuGramCustomGiftsEnabled: Bool = false
+        private var gugramCustomGiftCount: Int32 = 6
+        private var gugramActiveGift: GuGramSettings.GuGramCustomGift?
+        private var gugramShowGiftsOnProfile: Bool = true
+        private var gugramGiftAnimationStyle: Int32 = 1
         
         private let trackingLayer = HierarchyTrackingLayer()
         private var isCurrentlyInHierarchy = false
@@ -151,6 +607,177 @@ public final class PeerInfoGiftsCoverComponent: Component {
         
         deinit {
             self.giftsDisposable?.dispose()
+            self.gugramSettingsDisposable?.dispose()
+        }
+
+        // MARK: - GuGram Custom Gifts Setup
+        private func setupGuGramSettingsObserver() {
+            guard self.gugramSettingsDisposable == nil else { return }
+
+            let enabledSignal = GuGramSettings.shared.isCustomGiftEnabledSignal
+            let giftSignal = GuGramSettings.shared.activeCustomGiftSignal
+            let countSignal = GuGramSettings.shared.customGiftCountSignal
+            let showOnProfileSignal = GuGramSettings.shared.showGiftsOnProfileSignal
+            let animationStyleSignal = GuGramSettings.shared.giftAnimationStyleSignal
+
+            self.gugramSettingsDisposable = combineLatest(
+                queue: Queue.mainQueue(),
+                enabledSignal,
+                giftSignal,
+                countSignal,
+                showOnProfileSignal,
+                animationStyleSignal
+            ).start(next: { [weak self] enabled, gift, count, showOnProfile, animationStyle in
+                guard let self else { return }
+                self.isGuGramCustomGiftsEnabled = enabled
+                self.gugramActiveGift = gift
+                self.gugramCustomGiftCount = count
+                self.gugramShowGiftsOnProfile = showOnProfile
+                self.gugramGiftAnimationStyle = animationStyle
+
+                if !self.isUpdating {
+                    self.state?.updated(transition: .spring(duration: 0.4))
+                }
+            })
+        }
+
+        private func updateGuGramCustomGifts(component: PeerInfoGiftsCoverComponent, transition: ComponentTransition) {
+            guard isGuGramCustomGiftsEnabled,
+                  gugramShowGiftsOnProfile,
+                  component.peerId == component.context.account.peerId,
+                  let customGift = gugramActiveGift,
+                  let currentSize = self.currentSize else {
+                for (_, layer) in self.gugramCustomGiftLayers {
+                    layer.animateAlpha(from: 1.0, to: 0.0, duration: 0.25, removeOnCompletion: false, completion: { _ in
+                        layer.removeFromSuperlayer()
+                    })
+                }
+                self.gugramCustomGiftLayers.removeAll()
+                self.gugramCustomGiftPositions.removeAll()
+                self.gugramAppliedGift = nil
+                self.gugramAppliedCount = 0
+                self.gugramAppliedSize = nil
+                return
+            }
+
+            if currentSize.width <= 0.0 || component.defaultHeight <= 0.0 {
+                return
+            }
+
+            let iconSize = CGSize(width: 36.0, height: 36.0)
+            let count = max(1, min(Int(gugramCustomGiftCount), 10))
+
+            if self.gugramAppliedGift != customGift {
+                for (_, layer) in self.gugramCustomGiftLayers {
+                    layer.removeFromSuperlayer()
+                }
+                self.gugramCustomGiftLayers.removeAll()
+                self.gugramCustomGiftPositions.removeAll()
+            }
+
+            let sizeChanged = self.gugramAppliedSize != currentSize
+            if sizeChanged {
+                self.gugramCustomGiftPositions.removeAll()
+            }
+            self.gugramAppliedSize = currentSize
+
+            if self.gugramCustomGiftPositions.isEmpty || self.gugramCustomGiftPositions.count < count || self.gugramAppliedCount != gugramCustomGiftCount {
+                var avatarCenter = component.avatarCenter
+                if avatarCenter.y < 0.0 {
+                    avatarCenter.y = component.statusBarHeight + 75.0
+                }
+
+                var excludeRects: [CGRect] = []
+                if component.statusBarHeight > 0.0 {
+                    excludeRects.append(CGRect(origin: .zero, size: CGSize(width: currentSize.width, height: component.statusBarHeight + 4.0)))
+                }
+                excludeRects.append(CGRect(origin: CGPoint(x: 0.0, y: component.statusBarHeight), size: component.topLeftButtonsSize))
+                excludeRects.append(CGRect(origin: CGPoint(x: currentSize.width - component.topRightButtonsSize.width, y: component.statusBarHeight), size: component.topRightButtonsSize))
+                excludeRects.append(CGRect(origin: CGPoint(x: floor((currentSize.width - component.titleWidth) / 2.0), y: avatarCenter.y + component.avatarSize.height / 2.0 + 6.0), size: CGSize(width: component.titleWidth, height: 100.0)))
+                if component.bottomHeight > 0.0 {
+                    excludeRects.append(CGRect(origin: CGPoint(x: 0.0, y: component.defaultHeight - component.bottomHeight), size: CGSize(width: currentSize.width, height: component.bottomHeight)))
+                }
+
+                let positionGenerator = PositionGenerator(
+                    containerSize: CGSize(width: currentSize.width, height: component.defaultHeight),
+                    centerFrame: component.avatarSize.centered(around: avatarCenter),
+                    exclusionZones: excludeRects,
+                    minimumDistance: 38.0,
+                    edgePadding: 5.0,
+                    seed: self.gugramSeed
+                )
+
+                self.gugramCustomGiftPositions = positionGenerator.generatePositions(count: max(10, count), itemSize: iconSize)
+            }
+
+            self.gugramAppliedGift = customGift
+            self.gugramAppliedCount = gugramCustomGiftCount
+
+            var validIndices = Set<Int>()
+            for index in 0..<count {
+                guard index < self.gugramCustomGiftPositions.count else { break }
+                validIndices.insert(index)
+
+                let iconPosition = self.gugramCustomGiftPositions[index]
+                let customLayer: GuGramCustomGiftLayer
+
+                if let existing = self.gugramCustomGiftLayers[index] {
+                    customLayer = existing
+                } else {
+                    customLayer = GuGramCustomGiftLayer(customGift: customGift, size: iconSize, glowing: component.hasBackground)
+                    self.gugramCustomGiftLayers[index] = customLayer
+                    customLayer.zPosition = -1.0
+                    self.layer.addSublayer(customLayer)
+
+                    if self.scheduledAnimateIn {
+                        customLayer.opacity = 0.0
+                    } else {
+                        customLayer.animateAlpha(from: 0.0, to: 1.0, duration: 0.2)
+                        customLayer.animateScale(from: 0.01, to: 1.0, duration: 0.2)
+                    }
+                }
+
+                customLayer.updateGlowing(component.hasBackground)
+                customLayer.applyAnimationStyle(style: gugramGiftAnimationStyle, index: index, enabled: self.isCurrentlyInHierarchy)
+
+                let itemDistanceFraction = max(0.0, min(0.5, (iconPosition.distance - component.avatarSize.width / 2.0) / 144.0))
+                let itemScaleFraction = patternScaleValueAt(fraction: min(1.0, component.avatarTransitionFraction * 1.33), t: itemDistanceFraction, reverse: false)
+
+                let toAngle: CGFloat = .pi * 0.18
+                let centerPosition = PositionGenerator.Position(distance: 0.0, angle: iconPosition.angle + toAngle, scale: iconPosition.scale)
+                let effectivePosition = interpolatePosition(from: iconPosition, to: centerPosition, t: itemScaleFraction)
+
+                let absolutePosition = getAbsolutePosition(position: effectivePosition, centerPoint: component.avatarCenter)
+
+                transition.setBounds(layer: customLayer, bounds: CGRect(origin: .zero, size: iconSize))
+                transition.setPosition(layer: customLayer, position: absolutePosition)
+                transition.setScale(layer: customLayer, scale: iconPosition.scale * (1.0 - itemScaleFraction))
+
+                if !self.scheduledAnimateIn {
+                    transition.setAlpha(layer: customLayer, alpha: 1.0 - itemScaleFraction)
+                }
+            }
+
+            var removeIndices: [Int] = []
+            for (index, layer) in self.gugramCustomGiftLayers {
+                if !validIndices.contains(index) {
+                    removeIndices.append(index)
+                    layer.animateScale(from: 1.0, to: 0.01, duration: 0.25, removeOnCompletion: false)
+                    layer.animateAlpha(from: 1.0, to: 0.0, duration: 0.25, removeOnCompletion: false, completion: { _ in
+                        layer.removeFromSuperlayer()
+                    })
+                }
+            }
+            for index in removeIndices {
+                self.gugramCustomGiftLayers.removeValue(forKey: index)
+            }
+        }
+
+        private func interpolatePosition(from: PositionGenerator.Position, to: PositionGenerator.Position, t: CGFloat) -> PositionGenerator.Position {
+            let clampedT = max(0, min(1, t))
+            let interpolatedDistance = from.distance + (to.distance - from.distance) * clampedT
+            let interpolatedAngle = from.angle + (to.angle - from.angle) * clampedT
+            return PositionGenerator.Position(distance: interpolatedDistance, angle: interpolatedAngle, scale: from.scale)
         }
         
         @objc private func tapped(_ gestureRecognizer: UITapGestureRecognizer) {
@@ -183,12 +810,22 @@ public final class PeerInfoGiftsCoverComponent: Component {
                 }
                 index += 1
             }
+
+            let sortedIndices = self.gugramCustomGiftLayers.keys.sorted()
+            for index in sortedIndices {
+                if let layer = self.gugramCustomGiftLayers[index] {
+                    layer.applyAnimationStyle(style: self.gugramGiftAnimationStyle, index: index, enabled: self.isCurrentlyInHierarchy)
+                }
+            }
         }
         
         private var scheduledAnimateIn = false
         public func willAnimateIn() {
             self.scheduledAnimateIn = true
             for (_, layer) in self.iconLayers {
+                layer.opacity = 0.0
+            }
+            for (_, layer) in self.gugramCustomGiftLayers {
                 layer.opacity = 0.0
             }
         }
@@ -208,6 +845,15 @@ public final class PeerInfoGiftsCoverComponent: Component {
                     timingFunction: kCAMediaTimingFunctionSpring
                 )
             }
+            for (_, layer) in self.gugramCustomGiftLayers {
+                layer.opacity = 1.0
+                layer.animatePosition(
+                    from: component.avatarCenter,
+                    to: layer.position,
+                    duration: 0.4,
+                    timingFunction: kCAMediaTimingFunctionSpring
+                )
+            }
         }
     
         func update(component: PeerInfoGiftsCoverComponent, availableSize: CGSize, state: EmptyComponentState, environment: Environment<Empty>, transition: ComponentTransition) -> CGSize {
@@ -215,14 +861,17 @@ public final class PeerInfoGiftsCoverComponent: Component {
             defer {
                 self.isUpdating = false
             }
-            
+
+            // GuGram: Setup custom gifts observer
+            self.setupGuGramSettingsObserver()
+
             let previousComponent = self.component
             self.component = component
             self.state = state
-            
+
             let previousCurrentSize = self.currentSize
             self.currentSize = availableSize
-                    
+
             let iconSize = CGSize(width: 32.0, height: 32.0)
             
             let giftIds = self.gifts.map { gift in
@@ -376,6 +1025,9 @@ public final class PeerInfoGiftsCoverComponent: Component {
             for id in removeIds {
                 self.iconLayers.removeValue(forKey: id)
             }
+
+            // GuGram: update custom gifts layer
+            self.updateGuGramCustomGifts(component: component, transition: transition)
             return availableSize
         }
     }

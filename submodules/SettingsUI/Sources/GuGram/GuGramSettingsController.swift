@@ -17,12 +17,16 @@ private final class GuGramSettingsControllerArguments {
     let updateCustomUsername: (String) -> Void
     let selectCustomAvatar: () -> Void
     let selectRatingBadgeShape: () -> Void
-    
-    init(context: AccountContext, updateCustomUsername: @escaping (String) -> Void, selectCustomAvatar: @escaping () -> Void, selectRatingBadgeShape: @escaping () -> Void) {
+    let selectGiftPreset: () -> Void
+    let selectGiftAnimationStyle: () -> Void
+
+    init(context: AccountContext, updateCustomUsername: @escaping (String) -> Void, selectCustomAvatar: @escaping () -> Void, selectRatingBadgeShape: @escaping () -> Void, selectGiftPreset: @escaping () -> Void, selectGiftAnimationStyle: @escaping () -> Void) {
         self.context = context
         self.updateCustomUsername = updateCustomUsername
         self.selectCustomAvatar = selectCustomAvatar
         self.selectRatingBadgeShape = selectRatingBadgeShape
+        self.selectGiftPreset = selectGiftPreset
+        self.selectGiftAnimationStyle = selectGiftAnimationStyle
     }
 }
 
@@ -104,12 +108,14 @@ private final class DocumentPickerDelegate: NSObject, UIDocumentPickerDelegate {
 private var currentImagePickerDelegate: NSObject?
 
 private enum GuGramSettingsSection: Int32 {
-    case core
-    case privacy
-    case identity
-    case ratingBadge
-    case ratingInfo
-    case about
+    case core = 0
+    case privacy = 1
+    case identity = 2
+    case ratingBadge = 3
+    case ratingInfo = 4
+    case customGift = 6
+    case profileEffects = 7
+    case about = 8
 }
 
 private enum GuGramSettingsEntry: ItemListNodeEntry {
@@ -150,6 +156,25 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
     case customRatingInfoNextLevelInfinity(PresentationTheme, String, Bool)
     case hideGuGramSettingsEntry(PresentationTheme, String, Bool)
     case info(PresentationTheme, String)
+    // Custom Gift Entries
+    case isCustomGiftEnabled(PresentationTheme, String, Bool)
+    case selectGiftPreset(PresentationTheme, String, String)
+    case customGiftInnerColor(PresentationTheme, String, Int32)
+    case customGiftOuterColor(PresentationTheme, String, Int32)
+    case customGiftPatternColor(PresentationTheme, String, Int32)
+    case customGiftTextColor(PresentationTheme, String, Int32)
+    case customGiftRibbon(PresentationTheme, String, String)
+    case customGiftGlowEnabled(PresentationTheme, String, Bool)
+    case customGiftParticlesEnabled(PresentationTheme, String, Bool)
+    case showGiftsOnProfile(PresentationTheme, String, Bool)
+    case customGiftCount(PresentationTheme, String, Int32)
+    case giftAnimationStyle(PresentationTheme, String, Int32)
+    // Profile Effects Entries
+    case isProfileBackgroundEnabled(PresentationTheme, String, Bool)
+    case profileBackgroundPrimaryColor(PresentationTheme, String, Int32)
+    case profileBackgroundSecondaryColor(PresentationTheme, String, Int32)
+    case profileBackgroundPatternColor(PresentationTheme, String, Int32)
+    case profileBackgroundAnimated(PresentationTheme, String, Bool)
     
     var section: ItemListSectionId {
         switch self {
@@ -165,6 +190,10 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
             return GuGramSettingsSection.ratingBadge.rawValue
         case .isCustomRatingInfoEnabled, .customRatingInfoCurrentStars, .customRatingInfoNextStars, .customRatingInfoCurrentStarsInfinity, .customRatingInfoNextStarsInfinity, .customRatingInfoCurrentLevel, .customRatingInfoNextLevel, .customRatingInfoCurrentLevelInfinity, .customRatingInfoNextLevelInfinity:
             return GuGramSettingsSection.ratingInfo.rawValue
+        case .isCustomGiftEnabled, .selectGiftPreset, .customGiftInnerColor, .customGiftOuterColor, .customGiftPatternColor, .customGiftTextColor, .customGiftRibbon, .customGiftGlowEnabled, .customGiftParticlesEnabled, .showGiftsOnProfile, .customGiftCount, .giftAnimationStyle:
+            return GuGramSettingsSection.customGift.rawValue
+        case .isProfileBackgroundEnabled, .profileBackgroundPrimaryColor, .profileBackgroundSecondaryColor, .profileBackgroundPatternColor, .profileBackgroundAnimated:
+            return GuGramSettingsSection.profileEffects.rawValue
         case .hideGuGramSettingsEntry, .info:
             return GuGramSettingsSection.about.rawValue
         }
@@ -207,8 +236,27 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
         case .customRatingInfoCurrentLevel: return 4016
         case .customRatingInfoNextLevelInfinity: return 4017
         case .customRatingInfoNextLevel: return 4018
-        case .hideGuGramSettingsEntry: return 5010
-        case .info: return 5011
+        // Custom Gift stableIds
+        case .isCustomGiftEnabled: return 6010
+        case .selectGiftPreset: return 6011
+        case .customGiftInnerColor: return 6012
+        case .customGiftOuterColor: return 6013
+        case .customGiftPatternColor: return 6014
+        case .customGiftTextColor: return 6015
+        case .customGiftRibbon: return 6016
+        case .customGiftGlowEnabled: return 6017
+        case .customGiftParticlesEnabled: return 6018
+        case .showGiftsOnProfile: return 6019
+        case .customGiftCount: return 6020
+        case .giftAnimationStyle: return 6021
+        // Profile Effects stableIds
+        case .isProfileBackgroundEnabled: return 7010
+        case .profileBackgroundPrimaryColor: return 7011
+        case .profileBackgroundSecondaryColor: return 7012
+        case .profileBackgroundPatternColor: return 7013
+        case .profileBackgroundAnimated: return 7014
+        case .hideGuGramSettingsEntry: return 8010
+        case .info: return 8011
         }
     }
     
@@ -396,6 +444,93 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
             return false
         case let .info(lhsTheme, lhsText):
             if case let .info(rhsTheme, rhsText) = rhs, lhsTheme === rhsTheme, lhsText == rhsText {
+                return true
+            }
+            return false
+        // Custom Gift equality comparisons
+        case let .isCustomGiftEnabled(lhsTheme, lhsText, lhsValue):
+            if case let .isCustomGiftEnabled(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .selectGiftPreset(lhsTheme, lhsText, lhsValue):
+            if case let .selectGiftPreset(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .customGiftInnerColor(lhsTheme, lhsText, lhsValue):
+            if case let .customGiftInnerColor(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .customGiftOuterColor(lhsTheme, lhsText, lhsValue):
+            if case let .customGiftOuterColor(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .customGiftPatternColor(lhsTheme, lhsText, lhsValue):
+            if case let .customGiftPatternColor(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .customGiftTextColor(lhsTheme, lhsText, lhsValue):
+            if case let .customGiftTextColor(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .customGiftRibbon(lhsTheme, lhsText, lhsValue):
+            if case let .customGiftRibbon(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .customGiftGlowEnabled(lhsTheme, lhsText, lhsValue):
+            if case let .customGiftGlowEnabled(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .customGiftParticlesEnabled(lhsTheme, lhsText, lhsValue):
+            if case let .customGiftParticlesEnabled(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .showGiftsOnProfile(lhsTheme, lhsText, lhsValue):
+            if case let .showGiftsOnProfile(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .customGiftCount(lhsTheme, lhsText, lhsValue):
+            if case let .customGiftCount(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .giftAnimationStyle(lhsTheme, lhsText, lhsValue):
+            if case let .giftAnimationStyle(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        // Profile Effects equality comparisons
+        case let .isProfileBackgroundEnabled(lhsTheme, lhsText, lhsValue):
+            if case let .isProfileBackgroundEnabled(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .profileBackgroundPrimaryColor(lhsTheme, lhsText, lhsValue):
+            if case let .profileBackgroundPrimaryColor(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .profileBackgroundSecondaryColor(lhsTheme, lhsText, lhsValue):
+            if case let .profileBackgroundSecondaryColor(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .profileBackgroundPatternColor(lhsTheme, lhsText, lhsValue):
+            if case let .profileBackgroundPatternColor(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
+                return true
+            }
+            return false
+        case let .profileBackgroundAnimated(lhsTheme, lhsText, lhsValue):
+            if case let .profileBackgroundAnimated(rhsTheme, rhsText, rhsValue) = rhs, lhsTheme === rhsTheme, lhsText == rhsText, lhsValue == rhsValue {
                 return true
             }
             return false
@@ -588,6 +723,131 @@ private enum GuGramSettingsEntry: ItemListNodeEntry {
             })
         case let .info(_, text):
             return ItemListTextItem(presentationData: presentationData, text: .plain(text), sectionId: self.section)
+        // Custom Gift item implementations
+        case let .isCustomGiftEnabled(_, text, value):
+            return ItemListSwitchItem(presentationData: presentationData, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
+                GuGramSettings.shared.isCustomGiftEnabled = value
+            })
+        case let .selectGiftPreset(_, text, value):
+            let arguments = arguments as! GuGramSettingsControllerArguments
+            return ItemListDisclosureItem(presentationData: presentationData, title: text, label: value, sectionId: self.section, style: .blocks, action: {
+                arguments.selectGiftPreset()
+            })
+        case let .customGiftInnerColor(_, text, value):
+            let hexString = value != 0 ? String(format: "%06X", value) : ""
+            return ItemListSingleLineInputItem(presentationData: presentationData, title: NSAttributedString(string: text, font: Font.regular(presentationData.fontSize.itemListBaseFontSize), textColor: presentationData.theme.list.itemPrimaryTextColor), text: hexString, placeholder: "FFD700 (hex)", type: .regular(capitalization: true, autocorrection: false), sectionId: self.section, textUpdated: { text in
+                let cleanHex = text.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+                if cleanHex.isEmpty {
+                    GuGramSettings.shared.customGiftInnerColor = 0
+                } else if let intValue = Int32(cleanHex, radix: 16) {
+                    GuGramSettings.shared.customGiftInnerColor = intValue
+                }
+            }, action: {
+            })
+        case let .customGiftOuterColor(_, text, value):
+            let hexString = value != 0 ? String(format: "%06X", value) : ""
+            return ItemListSingleLineInputItem(presentationData: presentationData, title: NSAttributedString(string: text, font: Font.regular(presentationData.fontSize.itemListBaseFontSize), textColor: presentationData.theme.list.itemPrimaryTextColor), text: hexString, placeholder: "FF8C00 (hex)", type: .regular(capitalization: true, autocorrection: false), sectionId: self.section, textUpdated: { text in
+                let cleanHex = text.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+                if cleanHex.isEmpty {
+                    GuGramSettings.shared.customGiftOuterColor = 0
+                } else if let intValue = Int32(cleanHex, radix: 16) {
+                    GuGramSettings.shared.customGiftOuterColor = intValue
+                }
+            }, action: {
+            })
+        case let .customGiftPatternColor(_, text, value):
+            let hexString = value != 0 ? String(format: "%06X", value) : ""
+            return ItemListSingleLineInputItem(presentationData: presentationData, title: NSAttributedString(string: text, font: Font.regular(presentationData.fontSize.itemListBaseFontSize), textColor: presentationData.theme.list.itemPrimaryTextColor), text: hexString, placeholder: "FFFFFF (hex)", type: .regular(capitalization: true, autocorrection: false), sectionId: self.section, textUpdated: { text in
+                let cleanHex = text.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+                if cleanHex.isEmpty {
+                    GuGramSettings.shared.customGiftPatternColor = 0
+                } else if let intValue = Int32(cleanHex, radix: 16) {
+                    GuGramSettings.shared.customGiftPatternColor = intValue
+                }
+            }, action: {
+            })
+        case let .customGiftTextColor(_, text, value):
+            let hexString = value != 0 ? String(format: "%06X", value) : ""
+            return ItemListSingleLineInputItem(presentationData: presentationData, title: NSAttributedString(string: text, font: Font.regular(presentationData.fontSize.itemListBaseFontSize), textColor: presentationData.theme.list.itemPrimaryTextColor), text: hexString, placeholder: "FFFFFF (hex)", type: .regular(capitalization: true, autocorrection: false), sectionId: self.section, textUpdated: { text in
+                let cleanHex = text.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+                if cleanHex.isEmpty {
+                    GuGramSettings.shared.customGiftTextColor = 0
+                } else if let intValue = Int32(cleanHex, radix: 16) {
+                    GuGramSettings.shared.customGiftTextColor = intValue
+                }
+            }, action: {
+            })
+        case let .customGiftRibbon(_, text, value):
+            return ItemListSingleLineInputItem(presentationData: presentationData, title: NSAttributedString(string: text, font: Font.regular(presentationData.fontSize.itemListBaseFontSize), textColor: presentationData.theme.list.itemPrimaryTextColor), text: value, placeholder: "Custom text", type: .regular(capitalization: true, autocorrection: false), sectionId: self.section, textUpdated: { text in
+                GuGramSettings.shared.customGiftRibbon = text
+            }, action: {
+            })
+        case let .customGiftGlowEnabled(_, text, value):
+            return ItemListSwitchItem(presentationData: presentationData, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
+                GuGramSettings.shared.customGiftGlowEnabled = value
+            })
+        case let .customGiftParticlesEnabled(_, text, value):
+            return ItemListSwitchItem(presentationData: presentationData, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
+                GuGramSettings.shared.customGiftParticlesEnabled = value
+            })
+        case let .showGiftsOnProfile(_, text, value):
+            return ItemListSwitchItem(presentationData: presentationData, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
+                GuGramSettings.shared.showGiftsOnProfile = value
+            })
+        case let .customGiftCount(_, text, value):
+            return ItemListSingleLineInputItem(presentationData: presentationData, title: NSAttributedString(string: text, font: Font.regular(presentationData.fontSize.itemListBaseFontSize), textColor: presentationData.theme.list.itemPrimaryTextColor), text: "\(value)", placeholder: "1-10", type: .number, sectionId: self.section, textUpdated: { text in
+                if let intValue = Int32(text), intValue >= 1, intValue <= 10 {
+                    GuGramSettings.shared.customGiftCount = intValue
+                }
+            }, action: {
+            })
+        case let .giftAnimationStyle(_, text, value):
+            let arguments = arguments as! GuGramSettingsControllerArguments
+            return ItemListDisclosureItem(presentationData: presentationData, title: text, label: giftAnimationStyleTitle(value), sectionId: self.section, style: .blocks, action: {
+                arguments.selectGiftAnimationStyle()
+            })
+        // Profile Effects item implementations
+        case let .isProfileBackgroundEnabled(_, text, value):
+            return ItemListSwitchItem(presentationData: presentationData, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
+                GuGramSettings.shared.isProfileBackgroundEnabled = value
+            })
+        case let .profileBackgroundPrimaryColor(_, text, value):
+            let hexString = value != 0 ? String(format: "%06X", value) : ""
+            return ItemListSingleLineInputItem(presentationData: presentationData, title: NSAttributedString(string: text, font: Font.regular(presentationData.fontSize.itemListBaseFontSize), textColor: presentationData.theme.list.itemPrimaryTextColor), text: hexString, placeholder: "1A1A2E (hex)", type: .regular(capitalization: true, autocorrection: false), sectionId: self.section, textUpdated: { text in
+                let cleanHex = text.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+                if cleanHex.isEmpty {
+                    GuGramSettings.shared.profileBackgroundPrimaryColor = 0
+                } else if let intValue = Int32(cleanHex, radix: 16) {
+                    GuGramSettings.shared.profileBackgroundPrimaryColor = intValue
+                }
+            }, action: {
+            })
+        case let .profileBackgroundSecondaryColor(_, text, value):
+            let hexString = value != 0 ? String(format: "%06X", value) : ""
+            return ItemListSingleLineInputItem(presentationData: presentationData, title: NSAttributedString(string: text, font: Font.regular(presentationData.fontSize.itemListBaseFontSize), textColor: presentationData.theme.list.itemPrimaryTextColor), text: hexString, placeholder: "16213E (hex)", type: .regular(capitalization: true, autocorrection: false), sectionId: self.section, textUpdated: { text in
+                let cleanHex = text.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+                if cleanHex.isEmpty {
+                    GuGramSettings.shared.profileBackgroundSecondaryColor = 0
+                } else if let intValue = Int32(cleanHex, radix: 16) {
+                    GuGramSettings.shared.profileBackgroundSecondaryColor = intValue
+                }
+            }, action: {
+            })
+        case let .profileBackgroundPatternColor(_, text, value):
+            let hexString = value != 0 ? String(format: "%06X", value) : ""
+            return ItemListSingleLineInputItem(presentationData: presentationData, title: NSAttributedString(string: text, font: Font.regular(presentationData.fontSize.itemListBaseFontSize), textColor: presentationData.theme.list.itemPrimaryTextColor), text: hexString, placeholder: "0F3460 (hex)", type: .regular(capitalization: true, autocorrection: false), sectionId: self.section, textUpdated: { text in
+                let cleanHex = text.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+                if cleanHex.isEmpty {
+                    GuGramSettings.shared.profileBackgroundPatternColor = 0
+                } else if let intValue = Int32(cleanHex, radix: 16) {
+                    GuGramSettings.shared.profileBackgroundPatternColor = intValue
+                }
+            }, action: {
+            })
+        case let .profileBackgroundAnimated(_, text, value):
+            return ItemListSwitchItem(presentationData: presentationData, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
+                GuGramSettings.shared.profileBackgroundAnimated = value
+            })
         }
     }
 }
@@ -608,6 +868,48 @@ private func ratingBadgeShapeTitle(_ style: Int32) -> String {
         return "Star"
     default:
         return "Auto (By Level)"
+    }
+}
+
+private func giftAnimationStyleTitle(_ style: Int32) -> String {
+    switch style {
+    case 0:
+        return "None"
+    case 1:
+        return "Floating"
+    case 2:
+        return "Orbit"
+    case 3:
+        return "Pulse"
+    case 4:
+        return "Bounce"
+    default:
+        return "Floating"
+    }
+}
+
+private func giftPresetName(_ preset: String) -> String {
+    switch preset {
+    case "goldenCrown":
+        return "Golden Crown"
+    case "neonCyber":
+        return "Neon Cyber"
+    case "royalPurple":
+        return "Royal Purple"
+    case "oceanBlue":
+        return "Ocean Blue"
+    case "firePhoenix":
+        return "Fire Phoenix"
+    case "emeraldForest":
+        return "Emerald Forest"
+    case "midnightGalaxy":
+        return "Midnight Galaxy"
+    case "roseGold":
+        return "Rose Gold"
+    case "custom":
+        return "Custom"
+    default:
+        return "None"
     }
 }
 
@@ -688,12 +990,41 @@ private func guGramSettingsControllerEntries(presentationData: PresentationData,
         }
     }
 
+    // Custom Gift Section
+    entries.append(.sectionHeader(presentationData.theme, "Custom Gifts", .customGift))
+    entries.append(.isCustomGiftEnabled(presentationData.theme, "Enable Custom Gifts", state.isCustomGiftEnabled))
+    if state.isCustomGiftEnabled {
+        entries.append(.selectGiftPreset(presentationData.theme, "Gift Preset", giftPresetName(state.selectedGiftPreset)))
+        entries.append(.showGiftsOnProfile(presentationData.theme, "Show Gifts on Profile", state.showGiftsOnProfile))
+        if state.showGiftsOnProfile {
+            entries.append(.customGiftCount(presentationData.theme, "Gift Count (1-10)", state.customGiftCount))
+            entries.append(.giftAnimationStyle(presentationData.theme, "Animation Style", state.giftAnimationStyle))
+        }
+        if state.selectedGiftPreset == "custom" {
+            entries.append(.customGiftInnerColor(presentationData.theme, "Inner Color", state.customGiftInnerColor))
+            entries.append(.customGiftOuterColor(presentationData.theme, "Outer Color", state.customGiftOuterColor))
+            entries.append(.customGiftPatternColor(presentationData.theme, "Pattern Color", state.customGiftPatternColor))
+            entries.append(.customGiftTextColor(presentationData.theme, "Text Color", state.customGiftTextColor))
+            entries.append(.customGiftRibbon(presentationData.theme, "Ribbon Text", state.customGiftRibbon))
+            entries.append(.customGiftGlowEnabled(presentationData.theme, "Enable Glow Effect", state.customGiftGlowEnabled))
+            entries.append(.customGiftParticlesEnabled(presentationData.theme, "Enable Particles", state.customGiftParticlesEnabled))
+        }
+    }
+
+    // Profile Effects Section
+    entries.append(.sectionHeader(presentationData.theme, "Profile Effects", .profileEffects))
+    entries.append(.isProfileBackgroundEnabled(presentationData.theme, "Custom Profile Background", state.isProfileBackgroundEnabled))
+    if state.isProfileBackgroundEnabled {
+        entries.append(.profileBackgroundPrimaryColor(presentationData.theme, "Primary Color", state.profileBackgroundPrimaryColor))
+        entries.append(.profileBackgroundSecondaryColor(presentationData.theme, "Secondary Color", state.profileBackgroundSecondaryColor))
+        entries.append(.profileBackgroundPatternColor(presentationData.theme, "Pattern Color", state.profileBackgroundPatternColor))
+        entries.append(.profileBackgroundAnimated(presentationData.theme, "Animated Background", state.profileBackgroundAnimated))
+    }
+
     entries.append(.sectionHeader(presentationData.theme, "About", .about))
     entries.append(.hideGuGramSettingsEntry(presentationData.theme, "Hide GuGram in Settings (restart to show)", state.hideGuGramSettingsEntry))
-    entries.append(.info(presentationData.theme, "Local Premium unlocks client-side features like translations and icons.\n\nCustom Rating Badge: Set level 1-999 or use Infinity (∞). Choose a shape (Auto uses your level, Fixed Level locks a shape). Optional hex color (e.g. FF5500).\n\nRating Info Screen: Set current/next reputation and levels. Use Infinity toggles for ∞. Leave Next Level empty to auto +1; leave Next Reputation empty for max."))
+    entries.append(.info(presentationData.theme, "Local Premium unlocks client-side features like translations and icons.\n\nCustom Rating Badge: Set level 1-999 or use Infinity (∞). Choose a shape (Auto uses your level, Fixed Level locks a shape). Optional hex color (e.g. FF5500).\n\nRating Info Screen: Set current/next reputation and levels. Use Infinity toggles for ∞. Leave Next Level empty to auto +1; leave Next Reputation empty for max.\n\nCustom Gifts: Choose a preset theme or create your own with custom colors. Enable glow and particle effects for enhanced visuals.\n\nProfile Effects: Customize your profile background with gradient colors and animations."))
 
-    entries.sort()
-    
     return entries
 }
 
@@ -801,8 +1132,61 @@ public func guGramSettingsController(context: AccountContext) -> ViewController 
             })
         ])])
         context.sharedContext.mainWindow?.present(actionSheet, on: .root)
+    }, selectGiftPreset: {
+        let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+        let actionSheet = ActionSheetController(presentationData: presentationData)
+        let currentPreset = GuGramSettings.shared.selectedGiftPreset
+        let presets: [(String, String)] = [
+            ("none", "None"),
+            ("goldenCrown", "Golden Crown"),
+            ("neonCyber", "Neon Cyber"),
+            ("royalPurple", "Royal Purple"),
+            ("oceanBlue", "Ocean Blue"),
+            ("firePhoenix", "Fire Phoenix"),
+            ("emeraldForest", "Emerald Forest"),
+            ("midnightGalaxy", "Midnight Galaxy"),
+            ("roseGold", "Rose Gold"),
+            ("custom", "Custom Colors")
+        ]
+        let items = presets.map { preset, title in
+            let label = preset == currentPreset ? "\(title) ✓" : title
+            return ActionSheetButtonItem(title: label, color: .accent, action: { [weak actionSheet] in
+                actionSheet?.dismissAnimated()
+                GuGramSettings.shared.selectedGiftPreset = preset
+            })
+        }
+        actionSheet.setItemGroups([ActionSheetItemGroup(items: items), ActionSheetItemGroup(items: [
+            ActionSheetButtonItem(title: presentationData.strings.Common_Cancel, color: .accent, action: { [weak actionSheet] in
+                actionSheet?.dismissAnimated()
+            })
+        ])])
+        context.sharedContext.mainWindow?.present(actionSheet, on: .root)
+    }, selectGiftAnimationStyle: {
+        let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+        let actionSheet = ActionSheetController(presentationData: presentationData)
+        let currentStyle = GuGramSettings.shared.giftAnimationStyle
+        let styles: [(Int32, String)] = [
+            (0, "None"),
+            (1, "Floating"),
+            (2, "Orbit"),
+            (3, "Pulse"),
+            (4, "Bounce")
+        ]
+        let items = styles.map { style, title in
+            let label = style == currentStyle ? "\(title) ✓" : title
+            return ActionSheetButtonItem(title: label, color: .accent, action: { [weak actionSheet] in
+                actionSheet?.dismissAnimated()
+                GuGramSettings.shared.giftAnimationStyle = style
+            })
+        }
+        actionSheet.setItemGroups([ActionSheetItemGroup(items: items), ActionSheetItemGroup(items: [
+            ActionSheetButtonItem(title: presentationData.strings.Common_Cancel, color: .accent, action: { [weak actionSheet] in
+                actionSheet?.dismissAnimated()
+            })
+        ])])
+        context.sharedContext.mainWindow?.present(actionSheet, on: .root)
     })
-    
+
     let signal: Signal<(ItemListControllerState, (ItemListNodeState, GuGramSettingsControllerArguments)), NoError> = combineLatest(queue: .mainQueue(), 
         context.sharedContext.presentationData,
         GuGramSettings.shared.settingsStateSignal
